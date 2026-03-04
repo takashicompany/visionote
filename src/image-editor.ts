@@ -5,7 +5,8 @@ type EditorState = {
   image: HTMLImageElement | null
   panX: number
   panY: number
-  zoom: number
+  zoom: number     // actual pixel scale (100 = 1:1 original)
+  fitZoom: number  // the scale at which image fills crop area
   brightness: number
   contrast: number
   invert: boolean
@@ -16,6 +17,7 @@ const state: EditorState = {
   panX: 0,
   panY: 0,
   zoom: 100,
+  fitZoom: 100,
   brightness: 0,
   contrast: 0,
   invert: false,
@@ -40,11 +42,13 @@ export function initEditor(): void {
   const fileInput = document.getElementById('file-input') as HTMLInputElement
   fileInput.addEventListener('change', handleFileSelect)
 
-  // Zoom slider
+  // Zoom slider: 0% = fit to crop, 100% = original size
   const zoomSlider = document.getElementById('zoom-slider') as HTMLInputElement
   zoomSlider.addEventListener('input', () => {
-    state.zoom = Number(zoomSlider.value)
-    document.getElementById('zoom-value')!.textContent = `${state.zoom}%`
+    const pct = Number(zoomSlider.value)
+    // Linearly interpolate: 0% → fitZoom, 100% → 100 (original)
+    state.zoom = state.fitZoom + (100 - state.fitZoom) * pct / 100
+    document.getElementById('zoom-value')!.textContent = `${pct}%`
     render()
   })
 
@@ -98,14 +102,16 @@ function resetTransform(): void {
   // Fit image so the shorter dimension fills the crop area
   const scaleX = IMAGE_W / state.image.width
   const scaleY = IMAGE_H / state.image.height
-  const fitScale = Math.max(scaleX, scaleY)
-  state.zoom = Math.round(fitScale * 100)
+  state.fitZoom = Math.max(scaleX, scaleY) * 100
+  state.zoom = state.fitZoom  // start at fit (slider 0%)
   state.panX = 0
   state.panY = 0
 
   const zoomSlider = document.getElementById('zoom-slider') as HTMLInputElement
-  zoomSlider.value = String(state.zoom)
-  document.getElementById('zoom-value')!.textContent = `${state.zoom}%`
+  zoomSlider.min = '0'
+  zoomSlider.max = '100'
+  zoomSlider.value = '0'
+  document.getElementById('zoom-value')!.textContent = '0%'
 }
 
 // --- Pointer events for panning ---
