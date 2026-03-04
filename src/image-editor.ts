@@ -193,8 +193,8 @@ function renderPreview(): void {
   // Apply brightness/contrast/invert
   applyAdjustments(previewCtx, IMAGE_W, IMAGE_H)
 
-  // Quantize to 16 shades of grey
-  quantizeTo16Shades(previewCtx, IMAGE_W, IMAGE_H)
+  // Quantize to 16 shades, green tint to simulate G2 display
+  quantizeTo16Shades(previewCtx, IMAGE_W, IMAGE_H, true)
 }
 
 function applyAdjustments(ctx: CanvasRenderingContext2D, w: number, h: number): void {
@@ -229,7 +229,7 @@ function applyAdjustments(ctx: CanvasRenderingContext2D, w: number, h: number): 
   ctx.putImageData(imageData, 0, 0)
 }
 
-function quantizeTo16Shades(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+function quantizeTo16Shades(ctx: CanvasRenderingContext2D, w: number, h: number, greenTint: boolean): void {
   const imageData = ctx.getImageData(0, 0, w, h)
   const data = imageData.data
 
@@ -237,22 +237,28 @@ function quantizeTo16Shades(ctx: CanvasRenderingContext2D, w: number, h: number)
     // Quantize to 4-bit (16 levels): 0,17,34,...,255
     const level = Math.round(data[i] / 255 * 15)
     const value = Math.round(level * 255 / 15)
-    data[i] = value
-    data[i + 1] = value
-    data[i + 2] = value
+
+    if (greenTint) {
+      // G2 display: black background + green light
+      data[i] = 0
+      data[i + 1] = value
+      data[i + 2] = 0
+    } else {
+      data[i] = value
+      data[i + 1] = value
+      data[i + 2] = value
+    }
   }
 
   ctx.putImageData(imageData, 0, 0)
 }
 
 /**
- * Generate 8-bit greyscale PNG as byte array for G2 ImageContainer.
- * Uses an offscreen canvas to produce PNG, then fetches the blob.
+ * Get the processed greyscale pixel data (IMAGE_W x IMAGE_H, one byte per pixel).
  */
-export async function getGreyscalePngBytes(): Promise<number[] | null> {
+function getGreyscalePixels(): Uint8Array | null {
   if (!state.image) return null
 
-  // Render to an offscreen canvas at exact IMAGE_W x IMAGE_H
   const offscreen = document.createElement('canvas')
   offscreen.width = IMAGE_W
   offscreen.height = IMAGE_H
@@ -271,16 +277,123 @@ export async function getGreyscalePngBytes(): Promise<number[] | null> {
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, IMAGE_W, IMAGE_H)
 
-  // Apply adjustments and quantize
   applyAdjustments(ctx, IMAGE_W, IMAGE_H)
-  quantizeTo16Shades(ctx, IMAGE_W, IMAGE_H)
+  quantizeTo16Shades(ctx, IMAGE_W, IMAGE_H, false)
 
-  // Convert to PNG blob
-  const blob = await new Promise<Blob | null>((resolve) => {
-    offscreen.toBlob((b) => resolve(b), 'image/png')
-  })
-  if (!blob) return null
+  const imageData = ctx.getImageData(0, 0, IMAGE_W, IMAGE_H)
+  const grey = new Uint8Array(IMAGE_W * IMAGE_H)
+  for (let i = 0; i < grey.length; i++) {
+    grey[i] = imageData.data[i * 4] // R channel (all channels are equal)
+  }
+  return grey
+}
 
-  const buf = await blob.arrayBuffer()
-  return Array.from(new Uint8Array(buf))
+// ---------------------------------------------------------------------------
+// 8-bit greyscale PNG encoder
+// ---------------------------------------------------------------------------
+
+function crc32(data: Uint8Array): number {
+  let crc = 0xffffffff
+  for (let i = 0; i < data.length; i++) {
+    crc ^= data[i]
+    for (let j = 0; j < 8; j++) {
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0)
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0
+}
+
+function writeU32BE(arr: Uint8Array, offset: number, value: number): void {
+  arr[offset] = (value >>> 24) & 0xff
+  arr[offset + 1] = (value >>> 16) & 0xff
+  arr[offset + 2] = (value >>> 8) & 0xff
+  arr[offset + 3] = value & 0xff
+}
+
+function makePngChunk(type: string, data: Uint8Array): Uint8Array {
+  const chunk = new Uint8Array(4 + 4 + data.length + 4)
+  writeU32BE(chunk, 0, data.length)
+  // Type
+  for (let i = 0; i < 4; i++) chunk[4 + i] = type.charCodeAt(i)
+  // Data
+  chunk.set(data, 8)
+  // CRC over type + data
+  const crcData = new Uint8Array(4 + data.length)
+  for (let i = 0; i < 4; i++) crcData[i] = type.charCodeAt(i)
+  crcData.set(data, 4)
+  writeU32BE(chunk, 8 + data.length, crc32(crcData))
+  return chunk
+}
+
+async function zlibCompress(data: Uint8Array): Promise<Uint8Array> {
+  const cs = new CompressionStream('deflate')
+  const writer = cs.writable.getWriter()
+  writer.write(data as unknown as BufferSource)
+  writer.close()
+
+  const reader = cs.readable.getReader()
+  const chunks: Uint8Array[] = []
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+  }
+
+  let totalLen = 0
+  for (const c of chunks) totalLen += c.length
+  const result = new Uint8Array(totalLen)
+  let offset = 0
+  for (const c of chunks) {
+    result.set(c, offset)
+    offset += c.length
+  }
+  return result
+}
+
+async function encodeGreyscalePng(width: number, height: number, pixels: Uint8Array): Promise<Uint8Array> {
+  // PNG signature
+  const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
+
+  // IHDR: width(4) + height(4) + bitDepth(1) + colorType(1) + compression(1) + filter(1) + interlace(1) = 13
+  const ihdrData = new Uint8Array(13)
+  writeU32BE(ihdrData, 0, width)
+  writeU32BE(ihdrData, 4, height)
+  ihdrData[8] = 8  // bit depth
+  ihdrData[9] = 0  // color type 0 = greyscale
+  ihdrData[10] = 0 // compression
+  ihdrData[11] = 0 // filter method
+  ihdrData[12] = 0 // interlace
+  const ihdr = makePngChunk('IHDR', ihdrData)
+
+  // IDAT: each row has a filter byte (0 = None) followed by pixel data
+  const rawData = new Uint8Array(height * (1 + width))
+  for (let y = 0; y < height; y++) {
+    rawData[y * (1 + width)] = 0 // filter byte: None
+    rawData.set(pixels.subarray(y * width, (y + 1) * width), y * (1 + width) + 1)
+  }
+  const compressed = await zlibCompress(rawData)
+  const idat = makePngChunk('IDAT', compressed)
+
+  // IEND
+  const iend = makePngChunk('IEND', new Uint8Array(0))
+
+  // Concat all
+  const png = new Uint8Array(signature.length + ihdr.length + idat.length + iend.length)
+  let off = 0
+  png.set(signature, off); off += signature.length
+  png.set(ihdr, off); off += ihdr.length
+  png.set(idat, off); off += idat.length
+  png.set(iend, off)
+  return png
+}
+
+/**
+ * Generate 8-bit greyscale PNG as byte array for G2 ImageContainer.
+ */
+export async function getGreyscalePngBytes(): Promise<number[] | null> {
+  const pixels = getGreyscalePixels()
+  if (!pixels) return null
+
+  const png = await encodeGreyscalePng(IMAGE_W, IMAGE_H, pixels)
+  return Array.from(png)
 }
