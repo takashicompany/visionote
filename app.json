@@ -1,0 +1,8 @@
+{
+  "package_id": "com.ccsquad.visionote",
+  "name": "Visionote",
+  "version": "1.0.0",
+  "description": "Image viewer for Even G2 smart glasses",
+  "author": "ccsquad",
+  "entrypoint": "index.html"
+}

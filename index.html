@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+  <title>Visionote – Even G2</title>
+  <link rel="stylesheet" href="/src/styles.css">
+</head>
+
+<body>
+
+<div id="app">
+  <h1>Visionote</h1>
+
+  <div id="image-section">
+    <label id="file-label" for="file-input">Select Image</label>
+    <input type="file" id="file-input" accept="image/*" />
+
+    <div id="editor-area" style="display:none;">
+      <div id="canvas-wrapper">
+        <canvas id="edit-canvas"></canvas>
+      </div>
+
+      <div id="controls">
+        <div class="control-row">
+          <label>Zoom</label>
+          <input type="range" id="zoom-slider" min="10" max="500" value="100" />
+          <span id="zoom-value">100%</span>
+        </div>
+        <div class="control-row">
+          <label>Brightness</label>
+          <input type="range" id="brightness-slider" min="-100" max="100" value="0" />
+          <span id="brightness-value">0</span>
+        </div>
+        <div class="control-row">
+          <label>Contrast</label>
+          <input type="range" id="contrast-slider" min="-100" max="100" value="0" />
+          <span id="contrast-value">0</span>
+        </div>
+        <div class="control-row">
+          <label>Invert</label>
+          <input type="checkbox" id="invert-toggle" />
+        </div>
+      </div>
+
+      <div id="preview-section">
+        <p>G2 Preview (200x100, 16 shades)</p>
+        <canvas id="preview-canvas" width="200" height="100"></canvas>
+      </div>
+
+      <button id="sendBtn">Send to Glasses</button>
+    </div>
+  </div>
+
+  <details id="dev-section">
+    <summary>Development</summary>
+    <button id="connectBtn">Connect to G2</button>
+    <pre id="event-log"></pre>
+  </details>
+</div>
+
+<script type="module" src="/src/main.ts"></script>
+
+</body>
+</html>
