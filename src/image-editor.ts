@@ -426,10 +426,42 @@ function getPreviewDataUrl(): string | null {
   return previewCanvas.toDataURL('image/png')
 }
 
+function numberArrayToBase64(bytes: number[]): string {
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary)
+}
+
+function base64ToNumberArray(b64: string): number[] {
+  const binary = atob(b64)
+  const arr = new Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    arr[i] = binary.charCodeAt(i)
+  }
+  return arr
+}
+
 export function loadSavedImages(): SavedImage[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    savedImages = raw ? JSON.parse(raw) : []
+    if (raw) {
+      const parsed = JSON.parse(raw) as Array<Record<string, unknown>>
+      savedImages = parsed.map((item) => ({
+        id: item.id as number,
+        topPngBytes: typeof item.topPng === 'string'
+          ? base64ToNumberArray(item.topPng as string)
+          : item.topPngBytes as number[],
+        bottomPngBytes: typeof item.bottomPng === 'string'
+          ? base64ToNumberArray(item.bottomPng as string)
+          : item.bottomPngBytes as number[],
+        previewDataUrl: item.previewDataUrl as string,
+        createdAt: item.createdAt as number,
+      }))
+    } else {
+      savedImages = []
+    }
   } catch {
     savedImages = []
   }
@@ -444,7 +476,14 @@ export function loadSavedImages(): SavedImage[] {
 }
 
 function persistSavedImages(): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(savedImages))
+  const stored = savedImages.map((img) => ({
+    id: img.id,
+    topPng: numberArrayToBase64(img.topPngBytes),
+    bottomPng: numberArrayToBase64(img.bottomPngBytes),
+    previewDataUrl: img.previewDataUrl,
+    createdAt: img.createdAt,
+  }))
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
 }
 
 function persistActiveIndex(): void {
@@ -499,14 +538,14 @@ export function selectSavedImage(index: number): SavedImage | null {
 }
 
 export function selectNext(): SavedImage | null {
-  if (savedImages.length === 0) return null
+  if (savedImages.length <= 1) return null
   activeIndex = (activeIndex + 1) % savedImages.length
   persistActiveIndex()
   return savedImages[activeIndex]
 }
 
 export function selectPrev(): SavedImage | null {
-  if (savedImages.length === 0) return null
+  if (savedImages.length <= 1) return null
   activeIndex = (activeIndex - 1 + savedImages.length) % savedImages.length
   persistActiveIndex()
   return savedImages[activeIndex]

@@ -103,11 +103,15 @@ h1 {
   image-rendering: pixelated;
 }
 
-/* Send / Save buttons */
+/* Action buttons */
+#action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
 #sendBtn,
 #saveBtn {
-  display: block;
-  width: 100%;
+  flex: 1;
   padding: 0.75rem;
   font-size: 1rem;
   color: white;
@@ -116,28 +120,13 @@ h1 {
   cursor: pointer;
 }
 
-#sendBtn {
-  background: #2ecc71;
-}
+#sendBtn { background: #2ecc71; }
+#sendBtn:active { background: #27ae60; }
 
-#sendBtn:active {
-  background: #27ae60;
-}
+#saveBtn { background: #4a9eff; }
+#saveBtn:active { background: #357abd; }
 
-#sendBtn:disabled {
-  background: #666;
-  cursor: not-allowed;
-}
-
-#saveBtn {
-  margin-top: 0.5rem;
-  background: #4a9eff;
-}
-
-#saveBtn:active {
-  background: #357abd;
-}
-
+#sendBtn:disabled,
 #saveBtn:disabled {
   background: #666;
   cursor: not-allowed;
@@ -162,6 +151,14 @@ h1 {
   gap: 8px;
 }
 
+#saved-list.locked {
+  pointer-events: none;
+}
+
+#saved-list.locked .saved-thumb {
+  filter: brightness(0.3);
+}
+
 .saved-thumb {
   position: relative;
   border: 2px solid #444;
@@ -171,7 +168,7 @@ h1 {
 }
 
 .saved-thumb.active {
-  border-color: #2ecc71;
+  border-color: rgb(255, 0, 64);
 }
 
 .saved-thumb img {

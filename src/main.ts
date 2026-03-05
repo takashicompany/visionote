@@ -12,6 +12,22 @@ import {
   selectSavedImage,
 } from './image-editor'
 
+let busy = false
+
+function lockUI(): void {
+  busy = true
+  document.getElementById('sendBtn')?.setAttribute('disabled', '')
+  document.getElementById('saveBtn')?.setAttribute('disabled', '')
+  document.getElementById('saved-list')?.classList.add('locked')
+}
+
+function unlockUI(): void {
+  busy = false
+  document.getElementById('sendBtn')?.removeAttribute('disabled')
+  document.getElementById('saveBtn')?.removeAttribute('disabled')
+  document.getElementById('saved-list')?.classList.remove('locked')
+}
+
 function renderSavedList(): void {
   const list = document.getElementById('saved-list')!
   const countEl = document.getElementById('saved-count')!
@@ -28,6 +44,8 @@ function renderSavedList(): void {
     const imgEl = document.createElement('img')
     imgEl.src = img.previewDataUrl
     imgEl.addEventListener('click', async () => {
+      if (busy) return
+      lockUI()
       selectSavedImage(idx)
       try {
         const { sendImageToGlass } = await import('../g2/app')
@@ -35,6 +53,7 @@ function renderSavedList(): void {
       } catch (err) {
         console.error('[Visionote] send saved image failed', err)
       }
+      unlockUI()
       renderSavedList()
     })
     thumb.appendChild(imgEl)
@@ -44,6 +63,7 @@ function renderSavedList(): void {
     delBtn.textContent = 'x'
     delBtn.addEventListener('click', (e) => {
       e.stopPropagation()
+      if (busy) return
       deleteSavedImage(img.id)
       renderSavedList()
     })
@@ -52,6 +72,10 @@ function renderSavedList(): void {
     list.appendChild(thumb)
   })
 }
+
+// Exposed for g2/app.ts to call after scroll-based image switch
+;(window as unknown as Record<string, unknown>).__visionoteLockUI = lockUI
+;(window as unknown as Record<string, unknown>).__visionoteUnlockUI = unlockUI
 
 // Exposed for g2/app.ts to call after scroll-based image switch
 ;(window as unknown as Record<string, () => void>).__visionoteRenderSavedList = renderSavedList
@@ -78,16 +102,30 @@ async function boot() {
     connectBtn.disabled = true
   })
 
+  // Resend to glasses (development)
+  const resendBtn = document.getElementById('resendBtn') as HTMLButtonElement | null
+  resendBtn?.addEventListener('click', async () => {
+    const activeImg = getActiveSavedImage()
+    if (!activeImg) return
+    try {
+      const { sendImageToGlass } = await import('../g2/app')
+      await sendImageToGlass(activeImg.topPngBytes, activeImg.bottomPngBytes)
+    } catch (err) {
+      console.error('[Visionote] resend failed', err)
+    }
+  })
+
   // Send to glasses button
   const sendBtn = document.getElementById('sendBtn') as HTMLButtonElement | null
   sendBtn?.addEventListener('click', async () => {
+    if (busy) return
     const split = await getGreyscalePngBytes()
     if (!split) {
       alert('No image to send')
       return
     }
 
-    sendBtn.disabled = true
+    lockUI()
     sendBtn.textContent = 'Sending...'
 
     try {
@@ -99,8 +137,8 @@ async function boot() {
       sendBtn.textContent = 'Send Failed'
     } finally {
       setTimeout(() => {
-        sendBtn.disabled = false
-        sendBtn.textContent = 'Send to Glasses'
+        unlockUI()
+        sendBtn.textContent = 'Send Image'
       }, 2000)
     }
   })
@@ -108,18 +146,19 @@ async function boot() {
   // Save button
   const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement | null
   saveBtn?.addEventListener('click', async () => {
-    saveBtn.disabled = true
+    if (busy) return
+    lockUI()
     saveBtn.textContent = 'Saving...'
     const saved = await saveCurrentImage()
     if (saved) {
       renderSavedList()
       saveBtn.textContent = 'Saved!'
     } else {
-      saveBtn.textContent = 'No image to save'
+      saveBtn.textContent = 'No image'
     }
     setTimeout(() => {
-      saveBtn.disabled = false
-      saveBtn.textContent = 'Save Current Image'
+      unlockUI()
+      saveBtn.textContent = 'Save Image'
     }, 1500)
   })
 

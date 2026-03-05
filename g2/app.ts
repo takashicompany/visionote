@@ -7,10 +7,11 @@ import { selectPrev, selectNext } from '../src/image-editor'
 
 let sending = false
 
-function updateUI(): void {
-  const render = (window as unknown as Record<string, (() => void) | undefined>).__visionoteRenderSavedList
-  render?.()
-}
+const win = window as unknown as Record<string, ((() => void) | undefined)>
+
+function updateUI(): void { win.__visionoteRenderSavedList?.() }
+function lockUI(): void { win.__visionoteLockUI?.() }
+function unlockUI(): void { win.__visionoteUnlockUI?.() }
 
 async function sendSavedImage(img: { id: number; topPngBytes: number[]; bottomPngBytes: number[] }, direction: string): Promise<void> {
   if (sending) {
@@ -18,6 +19,7 @@ async function sendSavedImage(img: { id: number; topPngBytes: number[]; bottomPn
     return
   }
   sending = true
+  lockUI()
   try {
     appendEventLog(`Visionote: ${direction} → image ${img.id}`)
     await sendImageToGlass(img.topPngBytes, img.bottomPngBytes)
@@ -26,6 +28,7 @@ async function sendSavedImage(img: { id: number; topPngBytes: number[]; bottomPn
     appendEventLog(`Visionote: ${direction} → FAILED: ${err}`)
   } finally {
     sending = false
+    unlockUI()
   }
   updateUI()
 }
@@ -48,8 +51,8 @@ export async function initApp(b: EvenAppBridge): Promise<void> {
   setBridge(b)
 
   setEventHandlers({
-    onScrollUp: handleScrollUp,
-    onScrollDown: handleScrollDown,
+    onScrollUp: handleScrollDown,
+    onScrollDown: handleScrollUp,
     onClick: () => {},
   })
 
