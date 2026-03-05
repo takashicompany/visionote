@@ -1,10 +1,10 @@
 # Visionote
 
-[Even Realities G2](https://www.evenrealities.com/) スマートグラス向けの画像ビューアアプリ。
-
-スマホから画像を読み込み、位置・回転・明るさ・コントラストを調整して、G2の緑色4bitグレースケール画面に表示する。複数の画像を保存し、グラス上でスクロール操作で切り替えることができる。
+好きな写真、イラスト、メモ画像を[Even Realities G2](https://www.evenrealities.com/)のレンズに映す。
 
 <img src="images/samples/00.jpg" width="200"> → <img src="images/samples/00_visionote.png" width="200">
+
+スマホから画像を読み込み、位置・回転・明るさ・コントラストを調整して、G2の緑色4bitグレースケール画面に表示する。複数の画像を保存し、グラス上でスクロール操作で切り替えることができる。
 
 ## インストール
 

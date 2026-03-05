@@ -2,11 +2,11 @@
 
 [日本語版はこちら](README_ja.md)
 
-An image viewer app for [Even Realities G2](https://www.evenrealities.com/) smart glasses.
-
-Load any image from your phone, adjust position/rotation/brightness/contrast, and display it on the G2's green 4-bit greyscale screen. Save multiple images and switch between them with a scroll gesture on the glasses.
+Display your favorite photos, illustrations, and note images on the [Even Realities G2](https://www.evenrealities.com/) lens.
 
 <img src="images/samples/00.jpg" width="200"> → <img src="images/samples/00_visionote.png" width="200">
+
+Load any image from your phone, adjust position/rotation/brightness/contrast, and display it on the G2's green 4-bit greyscale screen. Save multiple images and switch between them with a scroll gesture on the glasses.
 
 ## Install
 
