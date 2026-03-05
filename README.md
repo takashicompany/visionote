@@ -10,7 +10,7 @@ Load any image from your phone, adjust position/rotation/brightness/contrast, an
 
 ## Install
 
-Scan the QR code with your Even G2 glasses:
+Scan the QR code from the Even app to install:
 
 ![QR Code](qr.png)
 
