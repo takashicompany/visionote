@@ -4,11 +4,7 @@ An image viewer app for [Even Realities G2](https://www.evenrealities.com/) smar
 
 Load any image from your phone, adjust position/rotation/brightness/contrast, and display it on the G2's green 4-bit greyscale screen. Save multiple images and switch between them with a scroll gesture on the glasses.
 
-## Screenshots
-
 <img src="images/samples/00.jpg" width="200"> → <img src="images/samples/00_visionote.png" width="200">
-
-<img src="images/samples/01.png" width="300">
 
 ## How It Works
 
@@ -25,6 +21,8 @@ The G2 renders images in green (black background + green light), matching how th
 ## Controls
 
 ### Phone UI
+
+<img src="images/samples/01.png" width="300">
 
 - **1-finger drag** — Pan the image
 - **2-finger pinch** — Zoom in/out
