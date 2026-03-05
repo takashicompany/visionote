@@ -58,13 +58,6 @@ h1 {
   cursor: grabbing;
 }
 
-#edit-canvas {
-  display: block;
-  width: 100%;
-  height: auto;
-  image-rendering: pixelated;
-}
-
 /* Controls */
 #controls {
   margin: 1rem 0;
@@ -85,6 +78,7 @@ h1 {
 
 .control-row input[type="range"] {
   flex: 1;
+  height: 32px;
   accent-color: #4a9eff;
 }
 
@@ -101,20 +95,10 @@ h1 {
   accent-color: #4a9eff;
 }
 
-/* Preview */
-#preview-section {
-  margin: 1rem 0;
-  text-align: center;
-}
-
-#preview-section p {
-  margin: 0 0 0.5rem;
-  font-size: 0.8rem;
-  color: #888;
-}
-
 #preview-canvas {
-  border: 1px solid #444;
+  display: block;
+  width: 100%;
+  height: auto;
   background: #000;
   image-rendering: pixelated;
 }

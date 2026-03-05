@@ -18,15 +18,10 @@
 
     <div id="editor-area" style="display:none;">
       <div id="canvas-wrapper">
-        <canvas id="edit-canvas"></canvas>
+        <canvas id="preview-canvas" width="200" height="200"></canvas>
       </div>
 
       <div id="controls">
-        <div class="control-row">
-          <label>Zoom</label>
-          <input type="range" id="zoom-slider" min="0" max="100" value="0" />
-          <span id="zoom-value">0%</span>
-        </div>
         <div class="control-row">
           <label>Brightness</label>
           <input type="range" id="brightness-slider" min="-100" max="100" value="0" />
@@ -41,11 +36,6 @@
           <label>Invert</label>
           <input type="checkbox" id="invert-toggle" />
         </div>
-      </div>
-
-      <div id="preview-section">
-        <p>G2 Preview (200x200, 16 shades green)</p>
-        <canvas id="preview-canvas" width="200" height="200"></canvas>
       </div>
 
       <button id="sendBtn">Send to Glasses</button>

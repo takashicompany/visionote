@@ -24,8 +24,9 @@ type EditorState = {
   image: HTMLImageElement | null
   panX: number
   panY: number
-  zoom: number     // actual pixel scale (100 = 1:1 original)
-  fitZoom: number  // the scale at which image fills crop area
+  zoom: number
+  fitZoom: number
+  rotation: number  // radians
   brightness: number
   contrast: number
   invert: boolean
@@ -37,39 +38,28 @@ const state: EditorState = {
   panY: 0,
   zoom: 100,
   fitZoom: 100,
+  rotation: 0,
   brightness: 0,
   contrast: 0,
   invert: false,
 }
 
-let editCanvas: HTMLCanvasElement
-let editCtx: CanvasRenderingContext2D
 let previewCanvas: HTMLCanvasElement
 let previewCtx: CanvasRenderingContext2D
 
-// Touch/mouse drag state
-let isDragging = false
-let lastPointerX = 0
-let lastPointerY = 0
+// Multi-touch state
+const pointers = new Map<number, { x: number; y: number }>()
+let pinchStartDist = 0
+let pinchStartAngle = 0
+let pinchStartZoom = 0
+let pinchStartRotation = 0
 
 export function initEditor(): void {
-  editCanvas = document.getElementById('edit-canvas') as HTMLCanvasElement
-  editCtx = editCanvas.getContext('2d')!
   previewCanvas = document.getElementById('preview-canvas') as HTMLCanvasElement
   previewCtx = previewCanvas.getContext('2d')!
 
   const fileInput = document.getElementById('file-input') as HTMLInputElement
   fileInput.addEventListener('change', handleFileSelect)
-
-  // Zoom slider: 0% = fit to crop, 100% = original size
-  const zoomSlider = document.getElementById('zoom-slider') as HTMLInputElement
-  zoomSlider.addEventListener('input', () => {
-    const pct = Number(zoomSlider.value)
-    // Linearly interpolate: 0% → fitZoom, 100% → 100 (original)
-    state.zoom = state.fitZoom + (100 - state.fitZoom) * pct / 100
-    document.getElementById('zoom-value')!.textContent = `${pct}%`
-    render()
-  })
 
   // Brightness slider
   const brightnessSlider = document.getElementById('brightness-slider') as HTMLInputElement
@@ -94,11 +84,11 @@ export function initEditor(): void {
     render()
   })
 
-  // Pan via touch/mouse on edit canvas
-  editCanvas.addEventListener('pointerdown', onPointerDown)
-  editCanvas.addEventListener('pointermove', onPointerMove)
-  editCanvas.addEventListener('pointerup', onPointerUp)
-  editCanvas.addEventListener('pointercancel', onPointerUp)
+  // Gesture events: pan (1 finger), pinch zoom + rotate (2 fingers)
+  previewCanvas.addEventListener('pointerdown', onPointerDown)
+  previewCanvas.addEventListener('pointermove', onPointerMove)
+  previewCanvas.addEventListener('pointerup', onPointerUp)
+  previewCanvas.addEventListener('pointercancel', onPointerUp)
 }
 
 function handleFileSelect(e: Event): void {
@@ -118,81 +108,85 @@ function handleFileSelect(e: Event): void {
 
 function resetTransform(): void {
   if (!state.image) return
-  // Fit image so the shorter dimension fills the crop area
   const scaleX = IMAGE_W / state.image.width
   const scaleY = IMAGE_H / state.image.height
   state.fitZoom = Math.max(scaleX, scaleY) * 100
-  state.zoom = state.fitZoom  // start at fit (slider 0%)
+  state.zoom = state.fitZoom
   state.panX = 0
   state.panY = 0
-
-  const zoomSlider = document.getElementById('zoom-slider') as HTMLInputElement
-  zoomSlider.min = '0'
-  zoomSlider.max = '100'
-  zoomSlider.value = '0'
-  document.getElementById('zoom-value')!.textContent = '0%'
+  state.rotation = 0
 }
 
-// --- Pointer events for panning ---
+
+// --- Pointer events: 1-finger pan, 2-finger pinch zoom + rotate ---
+
+let lastPanX = 0
+let lastPanY = 0
+
+function getPinchInfo(): { dist: number; angle: number } {
+  const pts = Array.from(pointers.values())
+  const dx = pts[1].x - pts[0].x
+  const dy = pts[1].y - pts[0].y
+  return {
+    dist: Math.sqrt(dx * dx + dy * dy),
+    angle: Math.atan2(dy, dx),
+  }
+}
 
 function onPointerDown(e: PointerEvent): void {
-  isDragging = true
-  lastPointerX = e.clientX
-  lastPointerY = e.clientY
-  editCanvas.setPointerCapture(e.pointerId)
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+  previewCanvas.setPointerCapture(e.pointerId)
+
+  if (pointers.size === 1) {
+    lastPanX = e.clientX
+    lastPanY = e.clientY
+  } else if (pointers.size === 2) {
+    const p = getPinchInfo()
+    pinchStartDist = p.dist
+    pinchStartAngle = p.angle
+    pinchStartZoom = state.zoom
+    pinchStartRotation = state.rotation
+  }
 }
 
 function onPointerMove(e: PointerEvent): void {
-  if (!isDragging) return
-  const dx = e.clientX - lastPointerX
-  const dy = e.clientY - lastPointerY
-  lastPointerX = e.clientX
-  lastPointerY = e.clientY
+  if (!pointers.has(e.pointerId)) return
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
-  // Convert screen pixels to source image pixels
-  const scale = state.zoom / 100
-  state.panX -= dx / scale
-  state.panY -= dy / scale
-  render()
+  if (pointers.size === 1) {
+    const dx = e.clientX - lastPanX
+    const dy = e.clientY - lastPanY
+    lastPanX = e.clientX
+    lastPanY = e.clientY
+
+    const scale = state.zoom / 100
+    const cos = Math.cos(state.rotation)
+    const sin = Math.sin(state.rotation)
+    state.panX -= (dx * cos + dy * sin) / scale
+    state.panY -= (-dx * sin + dy * cos) / scale
+    render()
+  } else if (pointers.size === 2) {
+    const p = getPinchInfo()
+    state.zoom = Math.max(state.fitZoom, pinchStartZoom * (p.dist / pinchStartDist))
+    state.rotation = pinchStartRotation + (p.angle - pinchStartAngle)
+    render()
+  }
 }
 
-function onPointerUp(_e: PointerEvent): void {
-  isDragging = false
+function onPointerUp(e: PointerEvent): void {
+  pointers.delete(e.pointerId)
+  if (pointers.size === 1) {
+    const remaining = pointers.values().next().value!
+    lastPanX = remaining.x
+    lastPanY = remaining.y
+  }
 }
 
 // --- Rendering ---
 
 function render(): void {
   if (!state.image) return
-  renderEditCanvas()
   renderPreview()
-}
-
-function renderEditCanvas(): void {
-  const img = state.image!
-  const scale = state.zoom / 100
-
-  // Edit canvas shows the crop area at 2x for visibility
-  const displayScale = 2
-  editCanvas.width = IMAGE_W * displayScale
-  editCanvas.height = IMAGE_H * displayScale
-
-  editCtx.imageSmoothingEnabled = true
-  editCtx.imageSmoothingQuality = 'high'
-
-  // Source coordinates: center of crop in image space
-  const srcCenterX = img.width / 2 + state.panX
-  const srcCenterY = img.height / 2 + state.panY
-  const srcW = IMAGE_W / scale
-  const srcH = IMAGE_H / scale
-  const srcX = srcCenterX - srcW / 2
-  const srcY = srcCenterY - srcH / 2
-
-  editCtx.clearRect(0, 0, editCanvas.width, editCanvas.height)
-  editCtx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, editCanvas.width, editCanvas.height)
-
-  // Apply brightness/contrast/invert to the edit canvas for visual feedback
-  applyAdjustments(editCtx, editCanvas.width, editCanvas.height)
 }
 
 function renderPreview(): void {
@@ -205,20 +199,15 @@ function renderPreview(): void {
   previewCtx.imageSmoothingEnabled = true
   previewCtx.imageSmoothingQuality = 'high'
 
-  const srcCenterX = img.width / 2 + state.panX
-  const srcCenterY = img.height / 2 + state.panY
-  const srcW = IMAGE_W / scale
-  const srcH = IMAGE_H / scale
-  const srcX = srcCenterX - srcW / 2
-  const srcY = srcCenterY - srcH / 2
-
   previewCtx.clearRect(0, 0, IMAGE_W, IMAGE_H)
-  previewCtx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, IMAGE_W, IMAGE_H)
+  previewCtx.save()
+  previewCtx.translate(IMAGE_W / 2, IMAGE_H / 2)
+  previewCtx.rotate(state.rotation)
+  previewCtx.scale(scale, scale)
+  previewCtx.drawImage(img, -img.width / 2 - state.panX, -img.height / 2 - state.panY)
+  previewCtx.restore()
 
-  // Apply brightness/contrast/invert
   applyAdjustments(previewCtx, IMAGE_W, IMAGE_H)
-
-  // Quantize to 16 shades, green tint to simulate G2 display
   quantizeTo16Shades(previewCtx, IMAGE_W, IMAGE_H, true)
 }
 
@@ -291,16 +280,15 @@ function getGreyscalePixels(): Uint8Array | null {
 
   const img = state.image
   const scale = state.zoom / 100
-  const srcCenterX = img.width / 2 + state.panX
-  const srcCenterY = img.height / 2 + state.panY
-  const srcW = IMAGE_W / scale
-  const srcH = IMAGE_H / scale
-  const srcX = srcCenterX - srcW / 2
-  const srcY = srcCenterY - srcH / 2
 
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, IMAGE_W, IMAGE_H)
+  ctx.save()
+  ctx.translate(IMAGE_W / 2, IMAGE_H / 2)
+  ctx.rotate(state.rotation)
+  ctx.scale(scale, scale)
+  ctx.drawImage(img, -img.width / 2 - state.panX, -img.height / 2 - state.panY)
+  ctx.restore()
 
   applyAdjustments(ctx, IMAGE_W, IMAGE_H)
   quantizeTo16Shades(ctx, IMAGE_W, IMAGE_H, false)
