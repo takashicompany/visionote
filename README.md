@@ -6,7 +6,7 @@ Load any image from your phone, adjust position/rotation/brightness/contrast, an
 
 ## Screenshots
 
-![Original](images/samples/00.jpg) → ![G2 Preview](images/samples/00_visionote.png)
+<img src="images/samples/00.jpg" width="200"> → <img src="images/samples/00_visionote.png" width="200">
 
 <img src="images/samples/01.png" width="300">
 
