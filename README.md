@@ -6,6 +6,14 @@ Load any image from your phone, adjust position/rotation/brightness/contrast, an
 
 <img src="images/samples/00.jpg" width="200"> → <img src="images/samples/00_visionote.png" width="200">
 
+## Install
+
+Scan the QR code with your Even G2 glasses:
+
+![QR Code](qr.png)
+
+https://takashicompany.github.io/visionote/
+
 ## How It Works
 
 Images are processed through the following pipeline:
