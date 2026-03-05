@@ -6,9 +6,9 @@ Load any image from your phone, adjust position/rotation/brightness/contrast, an
 
 ## Screenshots
 
-| App UI | G2 Preview |
-|--------|------------|
-| ![App](images/samples/01.png) | ![Preview](images/samples/00_visionote.png) |
+![Original](images/samples/00.jpg) → ![G2 Preview](images/samples/00_visionote.png)
+
+<img src="images/samples/01.png" width="300">
 
 ## How It Works
 
