@@ -1,5 +1,24 @@
 const IMAGE_W = 200
-const IMAGE_H = 100
+const IMAGE_H = 200
+const IMAGE_HALF_H = 100
+const STORAGE_KEY = 'visionote-saved-images'
+const ACTIVE_INDEX_KEY = 'visionote-active-index'
+
+export type SplitPngBytes = {
+  top: number[]
+  bottom: number[]
+}
+
+export type SavedImage = {
+  id: number
+  topPngBytes: number[]
+  bottomPngBytes: number[]
+  previewDataUrl: string
+  createdAt: number
+}
+
+let savedImages: SavedImage[] = []
+let activeIndex = -1
 
 type EditorState = {
   image: HTMLImageElement | null
@@ -394,12 +413,118 @@ async function encodeGreyscalePng(width: number, height: number, pixels: Uint8Ar
 }
 
 /**
- * Generate 8-bit greyscale PNG as byte array for G2 ImageContainer.
+ * Generate split 8-bit greyscale PNGs (top/bottom 200x100 each) for G2.
  */
-export async function getGreyscalePngBytes(): Promise<number[] | null> {
+export async function getGreyscalePngBytes(): Promise<SplitPngBytes | null> {
   const pixels = getGreyscalePixels()
   if (!pixels) return null
 
-  const png = await encodeGreyscalePng(IMAGE_W, IMAGE_H, pixels)
-  return Array.from(png)
+  const topPixels = pixels.subarray(0, IMAGE_W * IMAGE_HALF_H)
+  const bottomPixels = pixels.subarray(IMAGE_W * IMAGE_HALF_H)
+
+  const [topPng, bottomPng] = await Promise.all([
+    encodeGreyscalePng(IMAGE_W, IMAGE_HALF_H, topPixels),
+    encodeGreyscalePng(IMAGE_W, IMAGE_HALF_H, bottomPixels),
+  ])
+  return { top: Array.from(topPng), bottom: Array.from(bottomPng) }
+}
+
+// ---------------------------------------------------------------------------
+// Saved images (localStorage)
+// ---------------------------------------------------------------------------
+
+function getPreviewDataUrl(): string | null {
+  if (!previewCanvas) return null
+  return previewCanvas.toDataURL('image/png')
+}
+
+export function loadSavedImages(): SavedImage[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    savedImages = raw ? JSON.parse(raw) : []
+  } catch {
+    savedImages = []
+  }
+  try {
+    const idx = localStorage.getItem(ACTIVE_INDEX_KEY)
+    activeIndex = idx != null ? Number(idx) : -1
+    if (activeIndex >= savedImages.length) activeIndex = savedImages.length - 1
+  } catch {
+    activeIndex = -1
+  }
+  return savedImages
+}
+
+function persistSavedImages(): void {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(savedImages))
+}
+
+function persistActiveIndex(): void {
+  localStorage.setItem(ACTIVE_INDEX_KEY, String(activeIndex))
+}
+
+export async function saveCurrentImage(): Promise<SavedImage | null> {
+  const split = await getGreyscalePngBytes()
+  if (!split) return null
+  const preview = getPreviewDataUrl()
+  if (!preview) return null
+
+  const id = Date.now()
+  const entry: SavedImage = {
+    id,
+    topPngBytes: split.top,
+    bottomPngBytes: split.bottom,
+    previewDataUrl: preview,
+    createdAt: id,
+  }
+  savedImages.push(entry)
+  activeIndex = savedImages.length - 1
+  persistSavedImages()
+  persistActiveIndex()
+  return entry
+}
+
+export function deleteSavedImage(id: number): void {
+  const idx = savedImages.findIndex((img) => img.id === id)
+  if (idx === -1) return
+  savedImages.splice(idx, 1)
+  if (activeIndex >= savedImages.length) {
+    activeIndex = savedImages.length - 1
+  }
+  persistSavedImages()
+  persistActiveIndex()
+}
+
+export function getSavedImages(): SavedImage[] {
+  return savedImages
+}
+
+export function getActiveIndex(): number {
+  return activeIndex
+}
+
+export function selectSavedImage(index: number): SavedImage | null {
+  if (index < 0 || index >= savedImages.length) return null
+  activeIndex = index
+  persistActiveIndex()
+  return savedImages[index]
+}
+
+export function selectNext(): SavedImage | null {
+  if (savedImages.length === 0) return null
+  activeIndex = (activeIndex + 1) % savedImages.length
+  persistActiveIndex()
+  return savedImages[activeIndex]
+}
+
+export function selectPrev(): SavedImage | null {
+  if (savedImages.length === 0) return null
+  activeIndex = (activeIndex - 1 + savedImages.length) % savedImages.length
+  persistActiveIndex()
+  return savedImages[activeIndex]
+}
+
+export function getActiveSavedImage(): SavedImage | null {
+  if (activeIndex < 0 || activeIndex >= savedImages.length) return null
+  return savedImages[activeIndex]
 }

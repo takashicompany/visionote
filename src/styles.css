@@ -119,17 +119,21 @@ h1 {
   image-rendering: pixelated;
 }
 
-/* Send button */
-#sendBtn {
+/* Send / Save buttons */
+#sendBtn,
+#saveBtn {
   display: block;
   width: 100%;
   padding: 0.75rem;
   font-size: 1rem;
-  background: #2ecc71;
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
+}
+
+#sendBtn {
+  background: #2ecc71;
 }
 
 #sendBtn:active {
@@ -139,6 +143,75 @@ h1 {
 #sendBtn:disabled {
   background: #666;
   cursor: not-allowed;
+}
+
+#saveBtn {
+  margin-top: 0.5rem;
+  background: #4a9eff;
+}
+
+#saveBtn:active {
+  background: #357abd;
+}
+
+#saveBtn:disabled {
+  background: #666;
+  cursor: not-allowed;
+}
+
+/* Saved images section */
+#saved-section {
+  margin-top: 1.5rem;
+  border-top: 1px solid #333;
+  padding-top: 1rem;
+}
+
+#saved-count {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: #888;
+}
+
+#saved-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.saved-thumb {
+  position: relative;
+  border: 2px solid #444;
+  border-radius: 4px;
+  cursor: pointer;
+  background: #000;
+}
+
+.saved-thumb.active {
+  border-color: #2ecc71;
+}
+
+.saved-thumb img {
+  display: block;
+  width: 60px;
+  height: 60px;
+  image-rendering: pixelated;
+}
+
+.saved-thumb .delete-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #e74c3c;
+  color: white;
+  border: none;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
 }
 
 /* Dev section */
