@@ -86,11 +86,15 @@ async function boot() {
 
   document.title = `${app.name} – Even G2`
 
+  // Show version (injected at build time)
+  const verEl = document.getElementById('app-version')
+  if (verEl) verEl.textContent = `v${__APP_VERSION__}`
+
   // Initialize the image editor UI
   initEditor()
 
-  // Load saved images from localStorage
-  loadSavedImages()
+  // Load saved images from storage
+  await loadSavedImages()
   renderSavedList()
 
   // Connect button (development)
@@ -166,6 +170,10 @@ async function boot() {
   try {
     const actions = await app.createActions(() => {})
     await actions.connect()
+
+    // Bridge is now available — reload saved images from SDK storage
+    await loadSavedImages()
+    renderSavedList()
 
     // Restore last active image to G2
     const activeImg = getActiveSavedImage()

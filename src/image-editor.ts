@@ -1,8 +1,26 @@
+import { bridge } from '../g2/state'
+
 const IMAGE_W = 200
 const IMAGE_H = 200
 const IMAGE_HALF_H = 100
 const STORAGE_KEY = 'visionote-saved-images'
 const ACTIVE_INDEX_KEY = 'visionote-active-index'
+
+async function storageGet(key: string): Promise<string | null> {
+  if (bridge) {
+    const val = await bridge.getLocalStorage(key)
+    return val ?? null
+  }
+  return localStorage.getItem(key)
+}
+
+async function storageSet(key: string, value: string): Promise<void> {
+  if (bridge) {
+    await bridge.setLocalStorage(key, value)
+  } else {
+    localStorage.setItem(key, value)
+  }
+}
 
 export type SplitPngBytes = {
   top: number[]
@@ -443,9 +461,9 @@ function base64ToNumberArray(b64: string): number[] {
   return arr
 }
 
-export function loadSavedImages(): SavedImage[] {
+export async function loadSavedImages(): Promise<SavedImage[]> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = await storageGet(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as Array<Record<string, unknown>>
       savedImages = parsed.map((item) => ({
@@ -466,7 +484,7 @@ export function loadSavedImages(): SavedImage[] {
     savedImages = []
   }
   try {
-    const idx = localStorage.getItem(ACTIVE_INDEX_KEY)
+    const idx = await storageGet(ACTIVE_INDEX_KEY)
     activeIndex = idx != null ? Number(idx) : -1
     if (activeIndex >= savedImages.length) activeIndex = savedImages.length - 1
   } catch {
@@ -475,7 +493,7 @@ export function loadSavedImages(): SavedImage[] {
   return savedImages
 }
 
-function persistSavedImages(): void {
+async function persistSavedImages(): Promise<void> {
   const stored = savedImages.map((img) => ({
     id: img.id,
     topPng: numberArrayToBase64(img.topPngBytes),
@@ -483,11 +501,11 @@ function persistSavedImages(): void {
     previewDataUrl: img.previewDataUrl,
     createdAt: img.createdAt,
   }))
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
+  await storageSet(STORAGE_KEY, JSON.stringify(stored))
 }
 
-function persistActiveIndex(): void {
-  localStorage.setItem(ACTIVE_INDEX_KEY, String(activeIndex))
+async function persistActiveIndex(): Promise<void> {
+  await storageSet(ACTIVE_INDEX_KEY, String(activeIndex))
 }
 
 export async function saveCurrentImage(): Promise<SavedImage | null> {
@@ -506,20 +524,20 @@ export async function saveCurrentImage(): Promise<SavedImage | null> {
   }
   savedImages.push(entry)
   activeIndex = savedImages.length - 1
-  persistSavedImages()
-  persistActiveIndex()
+  await persistSavedImages()
+  await persistActiveIndex()
   return entry
 }
 
-export function deleteSavedImage(id: number): void {
+export async function deleteSavedImage(id: number): Promise<void> {
   const idx = savedImages.findIndex((img) => img.id === id)
   if (idx === -1) return
   savedImages.splice(idx, 1)
   if (activeIndex >= savedImages.length) {
     activeIndex = savedImages.length - 1
   }
-  persistSavedImages()
-  persistActiveIndex()
+  await persistSavedImages()
+  await persistActiveIndex()
 }
 
 export function getSavedImages(): SavedImage[] {
@@ -530,24 +548,24 @@ export function getActiveIndex(): number {
   return activeIndex
 }
 
-export function selectSavedImage(index: number): SavedImage | null {
+export async function selectSavedImage(index: number): Promise<SavedImage | null> {
   if (index < 0 || index >= savedImages.length) return null
   activeIndex = index
-  persistActiveIndex()
+  await persistActiveIndex()
   return savedImages[index]
 }
 
-export function selectNext(): SavedImage | null {
+export async function selectNext(): Promise<SavedImage | null> {
   if (savedImages.length <= 1) return null
   activeIndex = (activeIndex + 1) % savedImages.length
-  persistActiveIndex()
+  await persistActiveIndex()
   return savedImages[activeIndex]
 }
 
-export function selectPrev(): SavedImage | null {
+export async function selectPrev(): Promise<SavedImage | null> {
   if (savedImages.length <= 1) return null
   activeIndex = (activeIndex - 1 + savedImages.length) % savedImages.length
-  persistActiveIndex()
+  await persistActiveIndex()
   return savedImages[activeIndex]
 }
 
