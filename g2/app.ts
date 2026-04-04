@@ -1,7 +1,7 @@
 import type { EvenAppBridge } from '@evenrealities/even_hub_sdk'
 import { appendEventLog } from '../_shared/log'
 import { setBridge, bridge } from './state'
-import { initDisplay, sendImageToGlass, updateCursor, clearCursor } from './renderer'
+import { initDisplay, sendImageToGlass, updateCursor, switchToImageLayout, switchToThumbnailLayout } from './renderer'
 import { onEvenHubEvent, setEventHandlers } from './events'
 import {
   getSavedImages, selectSavedImage,
@@ -66,6 +66,9 @@ async function showThumbnails(): Promise<void> {
   const pageChanged = pageStart !== lastPageStart
 
   if (pageChanged) {
+    // Rebuild layout for thumbnail positions
+    await switchToThumbnailLayout()
+
     const quadrants: number[][] = []
     for (let i = 0; i < 4; i++) {
       quadrants.push(await generateSlotImage(pageStart + i))
@@ -104,7 +107,7 @@ async function showFullImage(): Promise<void> {
   }
 
   try {
-    await clearCursor()
+    await switchToImageLayout()
     await sendImageToGlass(img.quadrants)
     appendEventLog(`Visionote: image ${cursorIndex} displayed`)
   } catch (err) {
@@ -174,7 +177,7 @@ function handleDoubleClick(): void {
 export async function sendAndShowImage(quadrants: number[][]): Promise<void> {
   mode = 'image'
   lastPageStart = -1
-  await clearCursor()
+  await switchToImageLayout()
   await sendImageToGlass(quadrants)
 }
 
@@ -185,7 +188,7 @@ export async function showSavedImageOnGlass(index: number): Promise<void> {
   lastPageStart = -1
   const img = await selectSavedImage(index)
   if (!img) return
-  await clearCursor()
+  await switchToImageLayout()
   await sendImageToGlass(img.quadrants)
 }
 

@@ -23,10 +23,10 @@ export const FULL_H = CONTAINER_H * 2  // 200
 
 // 2x2 grid of image containers
 export const CONTAINERS = [
-  { id: 2, name: 'img-tl', x: 70,  y: 20 },
-  { id: 3, name: 'img-tr', x: 330, y: 20 },
-  { id: 4, name: 'img-bl', x: 70,  y: 180 },
-  { id: 5, name: 'img-br', x: 330, y: 180 },
+  { id: 2, name: 'img-tl', x: 90,  y: 20 },
+  { id: 3, name: 'img-tr', x: 350, y: 20 },
+  { id: 4, name: 'img-bl', x: 90,  y: 180 },
+  { id: 5, name: 'img-br', x: 350, y: 180 },
 ] as const
 
 // Cursor text container
