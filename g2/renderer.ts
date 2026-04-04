@@ -91,7 +91,7 @@ export async function updateCursor(activeSlot: number): Promise<void> {
   const target = CONTAINERS[activeSlot]
   if (!target) return
 
-  // Position cursor to the left of the target image, vertically centered
+  // Position cursor to the left of the target image
   const cursorX = target.x - CURSOR.w
   const cursorY = target.y + Math.floor((CONTAINER_H - CURSOR.h) / 2)
 
@@ -113,7 +113,7 @@ export async function updateCursor(activeSlot: number): Promise<void> {
         new TextContainerProperty({
           containerID: CURSOR.id,
           containerName: CURSOR.name,
-          content: '>',
+          content: '▶',
           xPosition: cursorX,
           yPosition: cursorY,
           width: CURSOR.w,

@@ -31,7 +31,7 @@ async function generateSlotImage(imgIndex: number): Promise<number[]> {
       images[imgIndex].previewDataUrl,
       CONTAINER_W, CONTAINER_H,
       false,
-      0, 10,
+      0, 0,
     )
   }
   return generateBlackPng(CONTAINER_W, CONTAINER_H)
