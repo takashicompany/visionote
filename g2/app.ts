@@ -63,28 +63,24 @@ async function showThumbnails(): Promise<void> {
   if (cursorIndex > pageStart + 3) pageStart = cursorIndex - 3
   pageStart = Math.max(0, pageStart)
 
-  const pageChanged = pageStart !== lastPageStart
-
-  if (pageChanged) {
-    // Full page send: all 4 thumbnails
-    const quadrants: number[][] = []
-    for (let i = 0; i < 4; i++) {
-      quadrants.push(await generateSlotImage(pageStart + i))
-    }
-
-    try {
-      await sendImageToGlass(quadrants)
-      lastPageStart = pageStart
-      appendEventLog(`Visionote: thumbnails sent (page=${pageStart}, cursor=${cursorIndex})`)
-    } catch (err) {
-      appendEventLog(`Visionote: thumbnail failed: ${err}`)
-    }
-  }
-
-  // Update ▶ cursor via text container
+  // Update cursor position (rebuildPageContainer resets image data)
   const activeSlot = cursorIndex - pageStart
   await updateCursor(activeSlot)
   appendEventLog(`Visionote: cursor → slot ${activeSlot}`)
+
+  // Always re-send thumbnails after rebuild (image data is cleared by rebuildPageContainer)
+  const quadrants: number[][] = []
+  for (let i = 0; i < 4; i++) {
+    quadrants.push(await generateSlotImage(pageStart + i))
+  }
+
+  try {
+    await sendImageToGlass(quadrants)
+    lastPageStart = pageStart
+    appendEventLog(`Visionote: thumbnails sent (page=${pageStart}, cursor=${cursorIndex})`)
+  } catch (err) {
+    appendEventLog(`Visionote: thumbnail failed: ${err}`)
+  }
 
   sending = false
   updateUI()
@@ -162,10 +158,8 @@ function handleDoubleClick(): void {
     appendEventLog('Visionote: double-click → thumbnail mode')
     void showThumbnails()
   } else {
-    if (bridge) {
-      void bridge.shutDownPageContainer(1)
-      appendEventLog('Visionote: exit requested')
-    }
+    // exit disabled for now
+    appendEventLog('Visionote: double-click in thumbnail mode (no-op)')
   }
 }
 

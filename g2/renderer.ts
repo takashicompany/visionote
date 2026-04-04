@@ -1,5 +1,6 @@
 import {
   CreateStartUpPageContainer,
+  RebuildPageContainer,
   ImageContainerProperty,
   ImageRawDataUpdate,
   TextContainerProperty,
@@ -32,8 +33,8 @@ export async function initDisplay(): Promise<void> {
         containerID: CURSOR.id,
         containerName: CURSOR.name,
         content: ' ',
-        xPosition: CURSOR.x,
-        yPosition: CURSOR.y,
+        xPosition: CONTAINERS[0].x - CURSOR.w,
+        yPosition: CONTAINERS[0].y + Math.floor((CONTAINER_H - CURSOR.h) / 2),
         width: CURSOR.w,
         height: CURSOR.h,
         isEventCapture: 0,
@@ -84,34 +85,99 @@ async function clearLoadingText(): Promise<void> {
   )
 }
 
-/** Show ▶ at the given slot position (0=TL, 1=TR, 2=BL, 3=BR) */
+/** Move cursor to the given slot by rebuilding the page with new cursor position */
 export async function updateCursor(activeSlot: number): Promise<void> {
   if (!bridge || !startupRendered) return
-  // Container is 88x200, covers left margin beside 2x2 image grid
-  // Slot 0,1 = top row (y offset ~small), Slot 2,3 = bottom row (y offset ~large)
-  const row = activeSlot < 2 ? 0 : 1
-  const lines = '\n'.repeat(row === 0 ? 2 : 7)
-  await bridge.textContainerUpgrade(
-    new TextContainerUpgrade({
-      containerID: CURSOR.id,
-      containerName: CURSOR.name,
-      contentOffset: 0,
-      contentLength: 100,
-      content: `${lines}  >`,
+  const target = CONTAINERS[activeSlot]
+  if (!target) return
+
+  // Position cursor to the left of the target image, vertically centered
+  const cursorX = target.x - CURSOR.w
+  const cursorY = target.y + Math.floor((CONTAINER_H - CURSOR.h) / 2)
+
+  await bridge.rebuildPageContainer(
+    new RebuildPageContainer({
+      containerTotalNum: 6,
+      textObject: [
+        new TextContainerProperty({
+          containerID: 1,
+          containerName: 'evt',
+          content: ' ',
+          xPosition: 0,
+          yPosition: 0,
+          width: DISPLAY_WIDTH,
+          height: DISPLAY_HEIGHT,
+          isEventCapture: 1,
+          paddingLength: 0,
+        }),
+        new TextContainerProperty({
+          containerID: CURSOR.id,
+          containerName: CURSOR.name,
+          content: '>',
+          xPosition: cursorX,
+          yPosition: cursorY,
+          width: CURSOR.w,
+          height: CURSOR.h,
+          isEventCapture: 0,
+          paddingLength: 0,
+        }),
+      ],
+      imageObject: CONTAINERS.map(
+        (c) =>
+          new ImageContainerProperty({
+            containerID: c.id,
+            containerName: c.name,
+            xPosition: c.x,
+            yPosition: c.y,
+            width: CONTAINER_W,
+            height: CONTAINER_H,
+          }),
+      ),
     }),
   )
 }
 
-/** Clear cursor indicator */
+/** Clear cursor by rebuilding without cursor content */
 export async function clearCursor(): Promise<void> {
   if (!bridge || !startupRendered) return
-  await bridge.textContainerUpgrade(
-    new TextContainerUpgrade({
-      containerID: CURSOR.id,
-      containerName: CURSOR.name,
-      contentOffset: 0,
-      contentLength: 100,
-      content: ' ',
+  await bridge.rebuildPageContainer(
+    new RebuildPageContainer({
+      containerTotalNum: 6,
+      textObject: [
+        new TextContainerProperty({
+          containerID: 1,
+          containerName: 'evt',
+          content: ' ',
+          xPosition: 0,
+          yPosition: 0,
+          width: DISPLAY_WIDTH,
+          height: DISPLAY_HEIGHT,
+          isEventCapture: 1,
+          paddingLength: 0,
+        }),
+        new TextContainerProperty({
+          containerID: CURSOR.id,
+          containerName: CURSOR.name,
+          content: ' ',
+          xPosition: 0,
+          yPosition: 0,
+          width: CURSOR.w,
+          height: CURSOR.h,
+          isEventCapture: 0,
+          paddingLength: 0,
+        }),
+      ],
+      imageObject: CONTAINERS.map(
+        (c) =>
+          new ImageContainerProperty({
+            containerID: c.id,
+            containerName: c.name,
+            xPosition: c.x,
+            yPosition: c.y,
+            width: CONTAINER_W,
+            height: CONTAINER_H,
+          }),
+      ),
     }),
   )
 }
