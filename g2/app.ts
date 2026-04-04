@@ -58,10 +58,8 @@ async function showThumbnails(): Promise<void> {
   if (cursorIndex >= images.length) cursorIndex = images.length - 1
   if (cursorIndex < 0) cursorIndex = 0
 
-  // Adjust page to keep cursor visible
-  if (cursorIndex < pageStart) pageStart = cursorIndex
-  if (cursorIndex > pageStart + 3) pageStart = cursorIndex - 3
-  pageStart = Math.max(0, pageStart)
+  // Fixed 4-item pages
+  pageStart = Math.floor(cursorIndex / 4) * 4
 
   const pageChanged = pageStart !== lastPageStart
 
@@ -111,7 +109,7 @@ async function showFullImage(): Promise<void> {
   try {
     await switchToImageLayout()
     await sendImageToGlass(img.quadrants)
-    await updateImageArrows()
+    if (getSavedImages().length > 1) await updateImageArrows()
     appendEventLog(`Visionote: image ${cursorIndex} displayed`)
   } catch (err) {
     appendEventLog(`Visionote: image failed: ${err}`)
@@ -167,8 +165,10 @@ function handleDoubleClick(): void {
     appendEventLog('Visionote: double-click → thumbnail mode')
     void showThumbnails()
   } else {
-    // exit disabled for now
-    appendEventLog('Visionote: double-click in thumbnail mode (no-op)')
+    if (bridge) {
+      void bridge.shutDownPageContainer(1)
+      appendEventLog('Visionote: exit requested')
+    }
   }
 }
 
@@ -182,7 +182,7 @@ export async function sendAndShowImage(quadrants: number[][]): Promise<void> {
   lastPageStart = -1
   await switchToImageLayout()
   await sendImageToGlass(quadrants)
-  await updateImageArrows()
+  if (getSavedImages().length > 1) await updateImageArrows()
 }
 
 /** Show a specific saved image on G2 and enter image mode */
@@ -194,7 +194,7 @@ export async function showSavedImageOnGlass(index: number): Promise<void> {
   if (!img) return
   await switchToImageLayout()
   await sendImageToGlass(img.quadrants)
-  await updateImageArrows()
+  if (getSavedImages().length > 1) await updateImageArrows()
 }
 
 /** Refresh thumbnail view (call after adding/removing images) */
