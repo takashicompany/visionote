@@ -63,24 +63,27 @@ async function showThumbnails(): Promise<void> {
   if (cursorIndex > pageStart + 3) pageStart = cursorIndex - 3
   pageStart = Math.max(0, pageStart)
 
-  // Update cursor position (rebuildPageContainer resets image data)
+  const pageChanged = pageStart !== lastPageStart
+
+  if (pageChanged) {
+    const quadrants: number[][] = []
+    for (let i = 0; i < 4; i++) {
+      quadrants.push(await generateSlotImage(pageStart + i))
+    }
+
+    try {
+      await sendImageToGlass(quadrants)
+      lastPageStart = pageStart
+      appendEventLog(`Visionote: thumbnails sent (page=${pageStart}, cursor=${cursorIndex})`)
+    } catch (err) {
+      appendEventLog(`Visionote: thumbnail failed: ${err}`)
+    }
+  }
+
+  // Update cursor (lightweight textContainerUpgrade, no rebuild)
   const activeSlot = cursorIndex - pageStart
   await updateCursor(activeSlot)
   appendEventLog(`Visionote: cursor → slot ${activeSlot}`)
-
-  // Always re-send thumbnails after rebuild (image data is cleared by rebuildPageContainer)
-  const quadrants: number[][] = []
-  for (let i = 0; i < 4; i++) {
-    quadrants.push(await generateSlotImage(pageStart + i))
-  }
-
-  try {
-    await sendImageToGlass(quadrants)
-    lastPageStart = pageStart
-    appendEventLog(`Visionote: thumbnails sent (page=${pageStart}, cursor=${cursorIndex})`)
-  } catch (err) {
-    appendEventLog(`Visionote: thumbnail failed: ${err}`)
-  }
 
   sending = false
   updateUI()

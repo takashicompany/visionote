@@ -33,10 +33,10 @@ export async function initDisplay(): Promise<void> {
         containerID: CURSOR.id,
         containerName: CURSOR.name,
         content: ' ',
-        xPosition: CONTAINERS[0].x - CURSOR.w,
-        yPosition: CONTAINERS[0].y + Math.floor((CONTAINER_H - CURSOR.h) / 2),
-        width: CURSOR.w,
-        height: CURSOR.h,
+        xPosition: 0,
+        yPosition: 0,
+        width: 576,
+        height: DISPLAY_HEIGHT,
         isEventCapture: 0,
         paddingLength: 0,
       }),
@@ -85,54 +85,29 @@ async function clearLoadingText(): Promise<void> {
   )
 }
 
-/** Move cursor to the given slot by rebuilding the page with new cursor position */
+// Cursor position map: row and column for each slot (1-indexed)
+const CURSOR_POS = [
+  { row: 3, col: 3 },   // TL (slot 0)
+  { row: 3, col: 16 },  // TR (slot 1)
+  { row: 9, col: 3 },   // BL (slot 2)
+  { row: 9, col: 16 },  // BR (slot 3)
+]
+
+/** Move cursor to the given slot using textContainerUpgrade (no rebuild needed) */
 export async function updateCursor(activeSlot: number): Promise<void> {
   if (!bridge || !startupRendered) return
-  const target = CONTAINERS[activeSlot]
-  if (!target) return
+  const pos = CURSOR_POS[activeSlot]
+  if (!pos) return
 
-  // Position cursor to the left of the target image
-  const cursorX = target.x - CURSOR.w
-  const cursorY = target.y + Math.floor((CONTAINER_H - CURSOR.h) / 2)
+  const content = '\n'.repeat(pos.row - 1) + '\u3000'.repeat(pos.col - 1) + '▶'
 
-  await bridge.rebuildPageContainer(
-    new RebuildPageContainer({
-      containerTotalNum: 6,
-      textObject: [
-        new TextContainerProperty({
-          containerID: 1,
-          containerName: 'evt',
-          content: ' ',
-          xPosition: 0,
-          yPosition: 0,
-          width: DISPLAY_WIDTH,
-          height: DISPLAY_HEIGHT,
-          isEventCapture: 1,
-          paddingLength: 0,
-        }),
-        new TextContainerProperty({
-          containerID: CURSOR.id,
-          containerName: CURSOR.name,
-          content: '▶',
-          xPosition: cursorX,
-          yPosition: cursorY,
-          width: CURSOR.w,
-          height: CURSOR.h,
-          isEventCapture: 0,
-          paddingLength: 0,
-        }),
-      ],
-      imageObject: CONTAINERS.map(
-        (c) =>
-          new ImageContainerProperty({
-            containerID: c.id,
-            containerName: c.name,
-            xPosition: c.x,
-            yPosition: c.y,
-            width: CONTAINER_W,
-            height: CONTAINER_H,
-          }),
-      ),
+  await bridge.textContainerUpgrade(
+    new TextContainerUpgrade({
+      containerID: CURSOR.id,
+      containerName: CURSOR.name,
+      contentOffset: 0,
+      contentLength: 2000,
+      content,
     }),
   )
 }
