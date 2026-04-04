@@ -582,3 +582,165 @@ export function getActiveSavedImage(): SavedImage | null {
   if (activeIndex < 0 || activeIndex >= savedImages.length) return null
   return savedImages[activeIndex]
 }
+
+// ---------------------------------------------------------------------------
+// Thumbnail generation for G2 display
+// ---------------------------------------------------------------------------
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
+export async function generateThumbnailPng(
+  previewDataUrl: string,
+  containerW: number,
+  containerH: number,
+  selected: boolean,
+  padX: number = 0,
+  padY: number = 0,
+): Promise<number[]> {
+  const img = await loadImage(previewDataUrl)
+
+  const canvas = document.createElement('canvas')
+  canvas.width = containerW
+  canvas.height = containerH
+  const ctx = canvas.getContext('2d')!
+  // Canvas defaults to transparent → black in greyscale
+
+  const contentW = containerW - padX * 2
+  const contentH = containerH - padY * 2
+
+  // Fit image maintaining aspect ratio
+  const imgAspect = img.width / img.height
+  const areaAspect = contentW / contentH
+  let drawW: number, drawH: number
+  if (imgAspect > areaAspect) {
+    drawW = contentW
+    drawH = contentW / imgAspect
+  } else {
+    drawH = contentH
+    drawW = contentH * imgAspect
+  }
+  const drawX = padX + (contentW - drawW) / 2
+  const drawY = padY + (contentH - drawH) / 2
+
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(img, drawX, drawY, drawW, drawH)
+
+  const imageData = ctx.getImageData(0, 0, containerW, containerH)
+  const pixels = new Uint8Array(containerW * containerH)
+
+  for (let i = 0; i < pixels.length; i++) {
+    pixels[i] = imageData.data[i * 4 + 1]
+  }
+
+  if (selected) {
+    // Draw ▶ triangle in the left padding area
+    const triW = 10
+    const triH = 16
+    const triX = Math.floor((padX - triW) / 2)
+    const triY = Math.floor((containerH - triH) / 2)
+
+    for (let row = 0; row < triH; row++) {
+      const half = triH / 2
+      const fillW = Math.round((half - Math.abs(row - half + 0.5)) / half * triW)
+      for (let col = 0; col < fillW; col++) {
+        const px = triX + col
+        const py = triY + row
+        if (px >= 0 && px < containerW && py >= 0 && py < containerH) {
+          pixels[py * containerW + px] = 255
+        }
+      }
+    }
+  }
+
+  const png = await encodeGreyscalePng(containerW, containerH, pixels)
+  return Array.from(png)
+}
+
+/** Generate a random test image and load it into the editor (same as Select Image) */
+export async function generateTestImage(): Promise<void> {
+  const tmp = document.createElement('canvas')
+  tmp.width = FULL_W
+  tmp.height = FULL_H
+  const ctx = tmp.getContext('2d')!
+
+  const hueBase = Math.random() * 360
+  const randHsl = (hShift: number, s: number, l: number) =>
+    `hsl(${(hueBase + hShift) % 360}, ${s}%, ${l}%)`
+
+  // Multi-stop gradient background
+  const angle = Math.random() * Math.PI * 2
+  const g = ctx.createLinearGradient(
+    FULL_W / 2 - Math.cos(angle) * FULL_W, FULL_H / 2 - Math.sin(angle) * FULL_H,
+    FULL_W / 2 + Math.cos(angle) * FULL_W, FULL_H / 2 + Math.sin(angle) * FULL_H,
+  )
+  g.addColorStop(0, randHsl(0, 70, 25))
+  g.addColorStop(0.5, randHsl(40, 80, 40))
+  g.addColorStop(1, randHsl(80, 60, 20))
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, FULL_W, FULL_H)
+
+  // Layered radial glows
+  for (let i = 0; i < 3; i++) {
+    const cx = Math.random() * FULL_W
+    const cy = Math.random() * FULL_H
+    const r = 60 + Math.random() * 120
+    const rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
+    rg.addColorStop(0, randHsl(120 + i * 90, 80, 60))
+    rg.addColorStop(1, 'transparent')
+    ctx.globalAlpha = 0.4 + Math.random() * 0.4
+    ctx.fillStyle = rg
+    ctx.fillRect(0, 0, FULL_W, FULL_H)
+  }
+
+  // Bokeh-like circles
+  for (let i = 0; i < 8 + Math.floor(Math.random() * 8); i++) {
+    const x = Math.random() * FULL_W
+    const y = Math.random() * FULL_H
+    const r = 5 + Math.random() * 40
+    ctx.globalAlpha = 0.1 + Math.random() * 0.3
+    ctx.fillStyle = randHsl(Math.random() * 360, 60, 70)
+    ctx.beginPath()
+    ctx.arc(x, y, r, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.globalAlpha = 1
+
+  // Timestamp in center
+  const now = new Date()
+  const ts = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`
+  ctx.fillStyle = 'white'
+  ctx.strokeStyle = 'black'
+  ctx.lineWidth = 3
+  ctx.font = 'bold 36px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.strokeText(ts, FULL_W / 2, FULL_H / 2)
+  ctx.fillText(ts, FULL_W / 2, FULL_H / 2)
+
+  // Load into editor (same flow as file select)
+  const dataUrl = tmp.toDataURL()
+  const img = new Image()
+  await new Promise<void>((resolve) => {
+    img.onload = () => resolve()
+    img.src = dataUrl
+  })
+
+  state.image = img
+  resetTransform()
+  render()
+  document.getElementById('editor-area')!.style.display = ''
+}
+
+export async function generateBlackPng(w: number, h: number): Promise<number[]> {
+  const pixels = new Uint8Array(w * h)
+  const png = await encodeGreyscalePng(w, h, pixels)
+  return Array.from(png)
+}

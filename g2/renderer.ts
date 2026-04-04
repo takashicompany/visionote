@@ -6,7 +6,7 @@ import {
   TextContainerUpgrade,
 } from '@evenrealities/even_hub_sdk'
 import { appendEventLog } from '../_shared/log'
-import { DISPLAY_WIDTH, DISPLAY_HEIGHT, CONTAINER_W, CONTAINER_H, CONTAINERS } from './layout'
+import { DISPLAY_WIDTH, DISPLAY_HEIGHT, CONTAINER_W, CONTAINER_H, CONTAINERS, CURSOR } from './layout'
 import { bridge } from './state'
 
 let startupRendered = false
@@ -15,7 +15,7 @@ export async function initDisplay(): Promise<void> {
   if (!bridge) return
 
   const config = {
-    containerTotalNum: 5,
+    containerTotalNum: 6,  // 2 text + 4 image
     textObject: [
       new TextContainerProperty({
         containerID: 1,
@@ -26,6 +26,17 @@ export async function initDisplay(): Promise<void> {
         width: DISPLAY_WIDTH,
         height: DISPLAY_HEIGHT,
         isEventCapture: 1,
+        paddingLength: 0,
+      }),
+      new TextContainerProperty({
+        containerID: CURSOR.id,
+        containerName: CURSOR.name,
+        content: ' ',
+        xPosition: CURSOR.x,
+        yPosition: CURSOR.y,
+        width: CURSOR.w,
+        height: CURSOR.h,
+        isEventCapture: 0,
         paddingLength: 0,
       }),
     ],
@@ -69,6 +80,50 @@ async function clearLoadingText(): Promise<void> {
       contentOffset: 0,
       contentLength: 2000,
       content: ' ',
+    }),
+  )
+}
+
+/** Show ▶ at the given slot position (0=TL, 1=TR, 2=BL, 3=BR) */
+export async function updateCursor(activeSlot: number): Promise<void> {
+  if (!bridge || !startupRendered) return
+  // Container is 88x200, covers left margin beside 2x2 image grid
+  // Slot 0,1 = top row (y offset ~small), Slot 2,3 = bottom row (y offset ~large)
+  const row = activeSlot < 2 ? 0 : 1
+  const lines = '\n'.repeat(row === 0 ? 2 : 7)
+  await bridge.textContainerUpgrade(
+    new TextContainerUpgrade({
+      containerID: CURSOR.id,
+      containerName: CURSOR.name,
+      contentOffset: 0,
+      contentLength: 100,
+      content: `${lines}  >`,
+    }),
+  )
+}
+
+/** Clear cursor indicator */
+export async function clearCursor(): Promise<void> {
+  if (!bridge || !startupRendered) return
+  await bridge.textContainerUpgrade(
+    new TextContainerUpgrade({
+      containerID: CURSOR.id,
+      containerName: CURSOR.name,
+      contentOffset: 0,
+      contentLength: 100,
+      content: ' ',
+    }),
+  )
+}
+
+export async function updateSingleImage(containerIndex: number, imageData: number[]): Promise<void> {
+  if (!bridge || !startupRendered) return
+  const c = CONTAINERS[containerIndex]
+  await bridge.updateImageRawData(
+    new ImageRawDataUpdate({
+      containerID: c.id,
+      containerName: c.name,
+      imageData,
     }),
   )
 }

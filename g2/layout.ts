@@ -21,3 +21,14 @@ export const CONTAINERS = [
   { id: 4, name: 'img-bl', x: OFFSET_X,               y: OFFSET_Y + CONTAINER_H },
   { id: 5, name: 'img-br', x: OFFSET_X + CONTAINER_W,  y: OFFSET_Y + CONTAINER_H },
 ] as const
+
+// Cursor text container (left margin, no overlap with image containers)
+export const CURSOR = {
+  id: 6,
+  name: 'cur',
+  x: 0,
+  y: OFFSET_Y,  // 44
+  w: OFFSET_X,   // 88
+  h: FULL_H,     // 200
+} as const
+

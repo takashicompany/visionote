@@ -10,6 +10,7 @@ import {
   getActiveIndex,
   getActiveSavedImage,
   selectSavedImage,
+  generateTestImage,
 } from './image-editor'
 
 let busy = false
@@ -48,8 +49,8 @@ function renderSavedList(): void {
       lockUI()
       selectSavedImage(idx)
       try {
-        const { sendImageToGlass } = await import('../g2/app')
-        await sendImageToGlass(img.quadrants)
+        const { showSavedImageOnGlass } = await import('../g2/app')
+        await showSavedImageOnGlass(idx)
       } catch (err) {
         console.error('[Visionote] send saved image failed', err)
       }
@@ -73,11 +74,9 @@ function renderSavedList(): void {
   })
 }
 
-// Exposed for g2/app.ts to call after scroll-based image switch
+// Exposed for g2/app.ts to call after G2-side operations
 ;(window as unknown as Record<string, unknown>).__visionoteLockUI = lockUI
 ;(window as unknown as Record<string, unknown>).__visionoteUnlockUI = unlockUI
-
-// Exposed for g2/app.ts to call after scroll-based image switch
 ;(window as unknown as Record<string, () => void>).__visionoteRenderSavedList = renderSavedList
 
 async function boot() {
@@ -112,11 +111,17 @@ async function boot() {
     const activeImg = getActiveSavedImage()
     if (!activeImg) return
     try {
-      const { sendImageToGlass } = await import('../g2/app')
-      await sendImageToGlass(activeImg.quadrants)
+      const { sendAndShowImage } = await import('../g2/app')
+      await sendAndShowImage(activeImg.quadrants)
     } catch (err) {
       console.error('[Visionote] resend failed', err)
     }
+  })
+
+  // Generate random test image (development)
+  const testImagesBtn = document.getElementById('testImagesBtn') as HTMLButtonElement | null
+  testImagesBtn?.addEventListener('click', async () => {
+    await generateTestImage()
   })
 
   // Send to glasses button
@@ -133,8 +138,8 @@ async function boot() {
     sendBtn.textContent = 'Sending...'
 
     try {
-      const { sendImageToGlass } = await import('../g2/app')
-      await sendImageToGlass(split.quadrants)
+      const { sendAndShowImage } = await import('../g2/app')
+      await sendAndShowImage(split.quadrants)
       sendBtn.textContent = 'Sent!'
     } catch (err) {
       console.error('[Visionote] send failed', err)
@@ -156,6 +161,10 @@ async function boot() {
     const saved = await saveCurrentImage()
     if (saved) {
       renderSavedList()
+      try {
+        const { refreshThumbnails } = await import('../g2/app')
+        await refreshThumbnails()
+      } catch { /* not connected */ }
       saveBtn.textContent = 'Saved!'
     } else {
       saveBtn.textContent = 'No image'
@@ -175,12 +184,9 @@ async function boot() {
     await loadSavedImages()
     renderSavedList()
 
-    // Restore last active image to G2
-    const activeImg = getActiveSavedImage()
-    if (activeImg) {
-      const { sendImageToGlass } = await import('../g2/app')
-      await sendImageToGlass(activeImg.quadrants)
-    }
+    // Show thumbnail view on G2
+    const { showInitialView } = await import('../g2/app')
+    await showInitialView()
   } catch {
     // Not in Even Hub environment, ignore
   }
