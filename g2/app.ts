@@ -9,6 +9,7 @@ import {
   generateThumbnailPng, generateBlackPng,
 } from '../src/image-editor'
 import { CONTAINER_W, CONTAINER_H } from './layout'
+import { initKeepAlive } from './keep-alive'
 
 type AppMode = 'thumbnails' | 'image'
 let mode: AppMode = 'thumbnails'
@@ -215,6 +216,35 @@ export async function showInitialView(): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Keep-alive callbacks
+// ---------------------------------------------------------------------------
+
+async function onRestore(): Promise<void> {
+  if (!bridge) return
+  try {
+    await initDisplay()
+    lastPageStart = -1
+    if (mode === 'thumbnails') {
+      await showThumbnails()
+    } else {
+      await showFullImage()
+    }
+    appendEventLog('Visionote: display restored after foreground return')
+  } catch (err) {
+    appendEventLog(`Visionote: restore failed: ${err}`)
+  }
+}
+
+function onHeartbeatTick(): void {
+  if (!bridge) return
+  appendEventLog('Visionote: heartbeat tick')
+}
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+
 export async function initApp(b: EvenAppBridge): Promise<void> {
   setBridge(b)
 
@@ -230,5 +260,6 @@ export async function initApp(b: EvenAppBridge): Promise<void> {
   })
 
   await initDisplay()
+  initKeepAlive(onRestore, onHeartbeatTick)
   appendEventLog('Visionote: app initialized')
 }
