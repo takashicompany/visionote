@@ -1,8 +1,8 @@
 import { bridge } from '../g2/state'
+import { CONTAINER_W, CONTAINER_H, FULL_W, FULL_H } from '../g2/layout'
 
-const IMAGE_W = 200
-const IMAGE_H = 200
-const IMAGE_HALF_H = 100
+const QUAD_W = CONTAINER_W  // 200
+const QUAD_H = CONTAINER_H  // 100
 const STORAGE_KEY = 'visionote-saved-images'
 const ACTIVE_INDEX_KEY = 'visionote-active-index'
 
@@ -23,14 +23,12 @@ async function storageSet(key: string, value: string): Promise<void> {
 }
 
 export type SplitPngBytes = {
-  top: number[]
-  bottom: number[]
+  quadrants: number[][] // [tl, tr, bl, br]
 }
 
 export type SavedImage = {
   id: number
-  topPngBytes: number[]
-  bottomPngBytes: number[]
+  quadrants: number[][] // [tl, tr, bl, br]
   previewDataUrl: string
   createdAt: number
 }
@@ -126,8 +124,8 @@ function handleFileSelect(e: Event): void {
 
 function resetTransform(): void {
   if (!state.image) return
-  const scaleX = IMAGE_W / state.image.width
-  const scaleY = IMAGE_H / state.image.height
+  const scaleX = FULL_W / state.image.width
+  const scaleY = FULL_H / state.image.height
   state.fitZoom = Math.max(scaleX, scaleY) * 100
   state.zoom = state.fitZoom
   state.panX = 0
@@ -211,22 +209,22 @@ function renderPreview(): void {
   const img = state.image!
   const scale = state.zoom / 100
 
-  previewCanvas.width = IMAGE_W
-  previewCanvas.height = IMAGE_H
+  previewCanvas.width = FULL_W
+  previewCanvas.height = FULL_H
 
   previewCtx.imageSmoothingEnabled = true
   previewCtx.imageSmoothingQuality = 'high'
 
-  previewCtx.clearRect(0, 0, IMAGE_W, IMAGE_H)
+  previewCtx.clearRect(0, 0, FULL_W, FULL_H)
   previewCtx.save()
-  previewCtx.translate(IMAGE_W / 2, IMAGE_H / 2)
+  previewCtx.translate(FULL_W / 2, FULL_H / 2)
   previewCtx.rotate(state.rotation)
   previewCtx.scale(scale, scale)
   previewCtx.drawImage(img, -img.width / 2 - state.panX, -img.height / 2 - state.panY)
   previewCtx.restore()
 
-  applyAdjustments(previewCtx, IMAGE_W, IMAGE_H)
-  quantizeTo16Shades(previewCtx, IMAGE_W, IMAGE_H, true)
+  applyAdjustments(previewCtx, FULL_W, FULL_H)
+  quantizeTo16Shades(previewCtx, FULL_W, FULL_H, true)
 }
 
 function applyAdjustments(ctx: CanvasRenderingContext2D, w: number, h: number): void {
@@ -286,14 +284,14 @@ function quantizeTo16Shades(ctx: CanvasRenderingContext2D, w: number, h: number,
 }
 
 /**
- * Get the processed greyscale pixel data (IMAGE_W x IMAGE_H, one byte per pixel).
+ * Get the processed greyscale pixel data (FULL_W x FULL_H, one byte per pixel).
  */
 function getGreyscalePixels(): Uint8Array | null {
   if (!state.image) return null
 
   const offscreen = document.createElement('canvas')
-  offscreen.width = IMAGE_W
-  offscreen.height = IMAGE_H
+  offscreen.width = FULL_W
+  offscreen.height = FULL_H
   const ctx = offscreen.getContext('2d')!
 
   const img = state.image
@@ -302,17 +300,17 @@ function getGreyscalePixels(): Uint8Array | null {
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
   ctx.save()
-  ctx.translate(IMAGE_W / 2, IMAGE_H / 2)
+  ctx.translate(FULL_W / 2, FULL_H / 2)
   ctx.rotate(state.rotation)
   ctx.scale(scale, scale)
   ctx.drawImage(img, -img.width / 2 - state.panX, -img.height / 2 - state.panY)
   ctx.restore()
 
-  applyAdjustments(ctx, IMAGE_W, IMAGE_H)
-  quantizeTo16Shades(ctx, IMAGE_W, IMAGE_H, false)
+  applyAdjustments(ctx, FULL_W, FULL_H)
+  quantizeTo16Shades(ctx, FULL_W, FULL_H, false)
 
-  const imageData = ctx.getImageData(0, 0, IMAGE_W, IMAGE_H)
-  const grey = new Uint8Array(IMAGE_W * IMAGE_H)
+  const imageData = ctx.getImageData(0, 0, FULL_W, FULL_H)
+  const grey = new Uint8Array(FULL_W * FULL_H)
   for (let i = 0; i < grey.length; i++) {
     grey[i] = imageData.data[i * 4] // R channel (all channels are equal)
   }
@@ -419,20 +417,36 @@ async function encodeGreyscalePng(width: number, height: number, pixels: Uint8Ar
 }
 
 /**
- * Generate split 8-bit greyscale PNGs (top/bottom 200x100 each) for G2.
+ * Extract a rectangular region from a full-size greyscale pixel buffer.
+ */
+function extractQuadrant(pixels: Uint8Array, srcW: number, x: number, y: number, w: number, h: number): Uint8Array {
+  const quad = new Uint8Array(w * h)
+  for (let row = 0; row < h; row++) {
+    const srcOffset = (y + row) * srcW + x
+    quad.set(pixels.subarray(srcOffset, srcOffset + w), row * w)
+  }
+  return quad
+}
+
+/**
+ * Generate 4 quadrant 8-bit greyscale PNGs (each 288x144) for G2.
+ * Order: [tl, tr, bl, br]
  */
 export async function getGreyscalePngBytes(): Promise<SplitPngBytes | null> {
   const pixels = getGreyscalePixels()
   if (!pixels) return null
 
-  const topPixels = pixels.subarray(0, IMAGE_W * IMAGE_HALF_H)
-  const bottomPixels = pixels.subarray(IMAGE_W * IMAGE_HALF_H)
+  const quadPixels = [
+    extractQuadrant(pixels, FULL_W, 0,      0,      QUAD_W, QUAD_H), // tl
+    extractQuadrant(pixels, FULL_W, QUAD_W,  0,      QUAD_W, QUAD_H), // tr
+    extractQuadrant(pixels, FULL_W, 0,      QUAD_H,  QUAD_W, QUAD_H), // bl
+    extractQuadrant(pixels, FULL_W, QUAD_W,  QUAD_H,  QUAD_W, QUAD_H), // br
+  ]
 
-  const [topPng, bottomPng] = await Promise.all([
-    encodeGreyscalePng(IMAGE_W, IMAGE_HALF_H, topPixels),
-    encodeGreyscalePng(IMAGE_W, IMAGE_HALF_H, bottomPixels),
-  ])
-  return { top: Array.from(topPng), bottom: Array.from(bottomPng) }
+  const pngs = await Promise.all(
+    quadPixels.map((qp) => encodeGreyscalePng(QUAD_W, QUAD_H, qp)),
+  )
+  return { quadrants: pngs.map((png) => Array.from(png)) }
 }
 
 // ---------------------------------------------------------------------------
@@ -466,17 +480,14 @@ export async function loadSavedImages(): Promise<SavedImage[]> {
     const raw = await storageGet(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as Array<Record<string, unknown>>
-      savedImages = parsed.map((item) => ({
-        id: item.id as number,
-        topPngBytes: typeof item.topPng === 'string'
-          ? base64ToNumberArray(item.topPng as string)
-          : item.topPngBytes as number[],
-        bottomPngBytes: typeof item.bottomPng === 'string'
-          ? base64ToNumberArray(item.bottomPng as string)
-          : item.bottomPngBytes as number[],
-        previewDataUrl: item.previewDataUrl as string,
-        createdAt: item.createdAt as number,
-      }))
+      savedImages = parsed
+        .filter((item) => Array.isArray(item.quadrantsPng))
+        .map((item) => ({
+          id: item.id as number,
+          quadrants: (item.quadrantsPng as string[]).map(base64ToNumberArray),
+          previewDataUrl: item.previewDataUrl as string,
+          createdAt: item.createdAt as number,
+        }))
     } else {
       savedImages = []
     }
@@ -496,8 +507,7 @@ export async function loadSavedImages(): Promise<SavedImage[]> {
 async function persistSavedImages(): Promise<void> {
   const stored = savedImages.map((img) => ({
     id: img.id,
-    topPng: numberArrayToBase64(img.topPngBytes),
-    bottomPng: numberArrayToBase64(img.bottomPngBytes),
+    quadrantsPng: img.quadrants.map(numberArrayToBase64),
     previewDataUrl: img.previewDataUrl,
     createdAt: img.createdAt,
   }))
@@ -517,8 +527,7 @@ export async function saveCurrentImage(): Promise<SavedImage | null> {
   const id = Date.now()
   const entry: SavedImage = {
     id,
-    topPngBytes: split.top,
-    bottomPngBytes: split.bottom,
+    quadrants: split.quadrants,
     previewDataUrl: preview,
     createdAt: id,
   }

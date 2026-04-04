@@ -1,6 +1,6 @@
 import type { EvenAppBridge } from '@evenrealities/even_hub_sdk'
 import { appendEventLog } from '../_shared/log'
-import { setBridge } from './state'
+import { setBridge, bridge } from './state'
 import { initDisplay, sendImageToGlass } from './renderer'
 import { onEvenHubEvent, setEventHandlers } from './events'
 import { selectPrev, selectNext } from '../src/image-editor'
@@ -13,7 +13,7 @@ function updateUI(): void { win.__visionoteRenderSavedList?.() }
 function lockUI(): void { win.__visionoteLockUI?.() }
 function unlockUI(): void { win.__visionoteUnlockUI?.() }
 
-async function sendSavedImage(img: { id: number; topPngBytes: number[]; bottomPngBytes: number[] }, direction: string): Promise<void> {
+async function sendSavedImage(img: { id: number; quadrants: number[][] }, direction: string): Promise<void> {
   if (sending) {
     appendEventLog(`Visionote: skip ${direction} (busy)`)
     return
@@ -22,7 +22,7 @@ async function sendSavedImage(img: { id: number; topPngBytes: number[]; bottomPn
   lockUI()
   try {
     appendEventLog(`Visionote: ${direction} → image ${img.id}`)
-    await sendImageToGlass(img.topPngBytes, img.bottomPngBytes)
+    await sendImageToGlass(img.quadrants)
     appendEventLog(`Visionote: ${direction} → sent OK`)
   } catch (err) {
     appendEventLog(`Visionote: ${direction} → FAILED: ${err}`)
@@ -33,17 +33,17 @@ async function sendSavedImage(img: { id: number; topPngBytes: number[]; bottomPn
   updateUI()
 }
 
-function handleScrollUp(): void {
-  const img = selectPrev()
+async function handleScrollUp(): Promise<void> {
+  const img = await selectPrev()
   if (img) {
-    void sendSavedImage(img, 'scroll up')
+    await sendSavedImage(img, 'scroll up')
   }
 }
 
-function handleScrollDown(): void {
-  const img = selectNext()
+async function handleScrollDown(): Promise<void> {
+  const img = await selectNext()
   if (img) {
-    void sendSavedImage(img, 'scroll down')
+    await sendSavedImage(img, 'scroll down')
   }
 }
 
@@ -54,6 +54,12 @@ export async function initApp(b: EvenAppBridge): Promise<void> {
     onScrollUp: handleScrollDown,
     onScrollDown: handleScrollUp,
     onClick: () => {},
+    onDoubleClick: () => {
+      if (bridge) {
+        void bridge.shutDownPageContainer(1)
+        appendEventLog('Visionote: exit requested')
+      }
+    },
   })
 
   b.onEvenHubEvent((event) => {

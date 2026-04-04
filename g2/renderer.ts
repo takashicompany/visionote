@@ -6,7 +6,7 @@ import {
   TextContainerUpgrade,
 } from '@evenrealities/even_hub_sdk'
 import { appendEventLog } from '../_shared/log'
-import { DISPLAY_WIDTH, DISPLAY_HEIGHT, IMAGE_W, IMAGE_HALF_H, IMAGE_X, IMAGE_TOP_Y, IMAGE_BOTTOM_Y } from './layout'
+import { DISPLAY_WIDTH, DISPLAY_HEIGHT, CONTAINER_W, CONTAINER_H, CONTAINERS } from './layout'
 import { bridge } from './state'
 
 let startupRendered = false
@@ -15,7 +15,7 @@ export async function initDisplay(): Promise<void> {
   if (!bridge) return
 
   const config = {
-    containerTotalNum: 3,
+    containerTotalNum: 5,
     textObject: [
       new TextContainerProperty({
         containerID: 1,
@@ -29,29 +29,22 @@ export async function initDisplay(): Promise<void> {
         paddingLength: 0,
       }),
     ],
-    imageObject: [
-      new ImageContainerProperty({
-        containerID: 2,
-        containerName: 'img-top',
-        xPosition: IMAGE_X,
-        yPosition: IMAGE_TOP_Y,
-        width: IMAGE_W,
-        height: IMAGE_HALF_H,
-      }),
-      new ImageContainerProperty({
-        containerID: 3,
-        containerName: 'img-btm',
-        xPosition: IMAGE_X,
-        yPosition: IMAGE_BOTTOM_Y,
-        width: IMAGE_W,
-        height: IMAGE_HALF_H,
-      }),
-    ],
+    imageObject: CONTAINERS.map(
+      (c) =>
+        new ImageContainerProperty({
+          containerID: c.id,
+          containerName: c.name,
+          xPosition: c.x,
+          yPosition: c.y,
+          width: CONTAINER_W,
+          height: CONTAINER_H,
+        }),
+    ),
   }
 
   await bridge.createStartUpPageContainer(new CreateStartUpPageContainer(config))
   startupRendered = true
-  appendEventLog('Visionote: display initialized (200x200, 2 containers)')
+  appendEventLog(`Visionote: display initialized (${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}, ${CONTAINERS.length} containers)`)
 }
 
 async function showLoadingText(): Promise<void> {
@@ -80,7 +73,7 @@ async function clearLoadingText(): Promise<void> {
   )
 }
 
-export async function sendImageToGlass(topBytes: number[], bottomBytes: number[]): Promise<void> {
+export async function sendImageToGlass(quadrants: number[][]): Promise<void> {
   if (!bridge) {
     appendEventLog('Visionote: bridge not connected')
     return
@@ -92,21 +85,17 @@ export async function sendImageToGlass(topBytes: number[], bottomBytes: number[]
 
   await showLoadingText()
 
-  await bridge.updateImageRawData(
-    new ImageRawDataUpdate({
-      containerID: 2,
-      containerName: 'img-top',
-      imageData: topBytes,
-    }),
-  )
-  await bridge.updateImageRawData(
-    new ImageRawDataUpdate({
-      containerID: 3,
-      containerName: 'img-btm',
-      imageData: bottomBytes,
-    }),
-  )
+  for (let i = 0; i < CONTAINERS.length; i++) {
+    const c = CONTAINERS[i]
+    await bridge.updateImageRawData(
+      new ImageRawDataUpdate({
+        containerID: c.id,
+        containerName: c.name,
+        imageData: quadrants[i],
+      }),
+    )
+  }
 
   await clearLoadingText()
-  appendEventLog('Visionote: image sent to glasses (200x200)')
+  appendEventLog(`Visionote: image sent to glasses (${DISPLAY_WIDTH}x${DISPLAY_HEIGHT})`)
 }

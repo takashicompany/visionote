@@ -49,7 +49,7 @@ function renderSavedList(): void {
       selectSavedImage(idx)
       try {
         const { sendImageToGlass } = await import('../g2/app')
-        await sendImageToGlass(img.topPngBytes, img.bottomPngBytes)
+        await sendImageToGlass(img.quadrants)
       } catch (err) {
         console.error('[Visionote] send saved image failed', err)
       }
@@ -113,7 +113,7 @@ async function boot() {
     if (!activeImg) return
     try {
       const { sendImageToGlass } = await import('../g2/app')
-      await sendImageToGlass(activeImg.topPngBytes, activeImg.bottomPngBytes)
+      await sendImageToGlass(activeImg.quadrants)
     } catch (err) {
       console.error('[Visionote] resend failed', err)
     }
@@ -134,7 +134,7 @@ async function boot() {
 
     try {
       const { sendImageToGlass } = await import('../g2/app')
-      await sendImageToGlass(split.top, split.bottom)
+      await sendImageToGlass(split.quadrants)
       sendBtn.textContent = 'Sent!'
     } catch (err) {
       console.error('[Visionote] send failed', err)
@@ -179,7 +179,7 @@ async function boot() {
     const activeImg = getActiveSavedImage()
     if (activeImg) {
       const { sendImageToGlass } = await import('../g2/app')
-      await sendImageToGlass(activeImg.topPngBytes, activeImg.bottomPngBytes)
+      await sendImageToGlass(activeImg.quadrants)
     }
   } catch {
     // Not in Even Hub environment, ignore

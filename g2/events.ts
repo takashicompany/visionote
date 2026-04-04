@@ -10,15 +10,18 @@ const SCROLL_COOLDOWN_MS = 200
 let onScrollUpFn: () => void = () => {}
 let onScrollDownFn: () => void = () => {}
 let onClickFn: () => void = () => {}
+let onDoubleClickFn: () => void = () => {}
 
 export function setEventHandlers(handlers: {
   onScrollUp: () => void
   onScrollDown: () => void
   onClick: () => void
+  onDoubleClick: () => void
 }): void {
   onScrollUpFn = handlers.onScrollUp
   onScrollDownFn = handlers.onScrollDown
   onClickFn = handlers.onClick
+  onDoubleClickFn = handlers.onDoubleClick
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +99,10 @@ export function onEvenHubEvent(event: EvenHubEvent): void {
 
     case OsEventTypeList.CLICK_EVENT:
       onClickFn()
+      break
+
+    case OsEventTypeList.DOUBLE_CLICK_EVENT:
+      onDoubleClickFn()
       break
 
     default:
