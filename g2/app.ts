@@ -1,7 +1,7 @@
 import type { EvenAppBridge } from '@evenrealities/even_hub_sdk'
 import { appendEventLog } from '../_shared/log'
 import { setBridge, bridge } from './state'
-import { initDisplay, sendImageToGlass, updateCursor, switchToImageLayout, switchToThumbnailLayout } from './renderer'
+import { initDisplay, sendImageToGlass, updateCursor, updateImageArrows, switchToImageLayout, switchToThumbnailLayout } from './renderer'
 import { onEvenHubEvent, setEventHandlers } from './events'
 import {
   getSavedImages, selectSavedImage,
@@ -85,7 +85,9 @@ async function showThumbnails(): Promise<void> {
 
   // Update cursor (lightweight textContainerUpgrade, no rebuild)
   const activeSlot = cursorIndex - pageStart
-  await updateCursor(activeSlot)
+  const currentPage = Math.floor(pageStart / 4) + 1
+  const maxPages = Math.ceil(images.length / 4)
+  await updateCursor(activeSlot, currentPage, maxPages)
   appendEventLog(`Visionote: cursor → slot ${activeSlot}`)
 
   sending = false
@@ -109,6 +111,7 @@ async function showFullImage(): Promise<void> {
   try {
     await switchToImageLayout()
     await sendImageToGlass(img.quadrants)
+    await updateImageArrows()
     appendEventLog(`Visionote: image ${cursorIndex} displayed`)
   } catch (err) {
     appendEventLog(`Visionote: image failed: ${err}`)
@@ -179,6 +182,7 @@ export async function sendAndShowImage(quadrants: number[][]): Promise<void> {
   lastPageStart = -1
   await switchToImageLayout()
   await sendImageToGlass(quadrants)
+  await updateImageArrows()
 }
 
 /** Show a specific saved image on G2 and enter image mode */
@@ -190,6 +194,7 @@ export async function showSavedImageOnGlass(index: number): Promise<void> {
   if (!img) return
   await switchToImageLayout()
   await sendImageToGlass(img.quadrants)
+  await updateImageArrows()
 }
 
 /** Refresh thumbnail view (call after adding/removing images) */

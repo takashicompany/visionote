@@ -94,13 +94,29 @@ const CURSOR_POS = [
 ]
 
 /** Move cursor to the given slot using textContainerUpgrade (no rebuild needed) */
-export async function updateCursor(activeSlot: number): Promise<void> {
+export async function updateCursor(activeSlot: number, currentPage: number, maxPages: number): Promise<void> {
   if (!bridge || !startupRendered) return
   const pos = CURSOR_POS[activeSlot]
   if (!pos) return
 
-  const content = '\n'.repeat(pos.row - 1) + '\u3000'.repeat(pos.col - 1) + '▶'
+  const pageInfo = `${currentPage}/${maxPages}`
+  const content = pageInfo + '\n'.repeat(pos.row - 1) + '\u3000'.repeat(pos.col - 1) + '▶'
 
+  await bridge.textContainerUpgrade(
+    new TextContainerUpgrade({
+      containerID: CURSOR.id,
+      containerName: CURSOR.name,
+      contentOffset: 0,
+      contentLength: 2000,
+      content,
+    }),
+  )
+}
+
+/** Show ↑↓ navigation arrows in image mode */
+export async function updateImageArrows(): Promise<void> {
+  if (!bridge || !startupRendered) return
+  const content = '\u3000'.repeat(14) + '↑' + '\n'.repeat(9) + '\u3000'.repeat(14) + '↓'
   await bridge.textContainerUpgrade(
     new TextContainerUpgrade({
       containerID: CURSOR.id,
@@ -114,7 +130,7 @@ export async function updateCursor(activeSlot: number): Promise<void> {
 
 // Centered image layout (no gaps, for full image mode)
 const CENTER_X = Math.floor((DISPLAY_WIDTH - FULL_W) / 2)   // 88
-const CENTER_Y = Math.floor((DISPLAY_HEIGHT - FULL_H) / 2)  // 44
+const CENTER_Y = 35
 const CENTERED_CONTAINERS = [
   { x: CENTER_X,               y: CENTER_Y },
   { x: CENTER_X + CONTAINER_W, y: CENTER_Y },
