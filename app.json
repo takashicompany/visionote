@@ -2,12 +2,19 @@
   "package_id": "company.takashi.visionote",
   "edition": "202601",
   "name": "Visionote",
-  "version": "1.0.0",
+  "version": "2.0.2",
   "min_app_version": "2.0.0",
   "min_sdk_version": "0.0.9",
   "description": "Image viewer for Even G2 smart glasses",
+  "tagline": "Image viewer for Even G2",
   "author": "ccsquad",
   "entrypoint": "index.html",
-  "permissions": [],
+  "permissions": [
+    {
+      "name": "network",
+      "desc": "Allows the app to run correctly within Even Hub during distribution and QA review.",
+      "whitelist": []
+    }
+  ],
   "supported_languages": ["en", "ja"]
 }
