@@ -22,7 +22,6 @@ let cursorIndex = 0
 let pageStart = 0
 let lastPageStart = -1
 let sending = false
-let textScrollLine = 0
 
 const win = window as unknown as Record<string, ((() => void) | undefined)>
 function updateUI(): void { win.__visionoteRenderSavedList?.() }
@@ -67,6 +66,10 @@ async function showThumbnails(): Promise<void> {
   // Fixed 4-item pages
   pageStart = Math.floor(cursorIndex / 4) * 4
 
+  const activeSlot = cursorIndex - pageStart
+  const currentPage = Math.floor(pageStart / 4) + 1
+  const maxPages = Math.ceil(items.length / 4)
+
   const pageChanged = pageStart !== lastPageStart
 
   if (pageChanged) {
@@ -89,6 +92,9 @@ async function showThumbnails(): Promise<void> {
       await switchToThumbnailLayout()
     }
 
+    // Show page number immediately after layout rebuild
+    await updateCursor(activeSlot, currentPage, maxPages)
+
     // Send image data only for image slots
     try {
       for (const slot of imageSlots) {
@@ -102,10 +108,7 @@ async function showThumbnails(): Promise<void> {
     }
   }
 
-  // Update cursor (lightweight textContainerUpgrade, no rebuild)
-  const activeSlot = cursorIndex - pageStart
-  const currentPage = Math.floor(pageStart / 4) + 1
-  const maxPages = Math.ceil(items.length / 4)
+  // Update cursor
   await updateCursor(activeSlot, currentPage, maxPages)
   appendEventLog(`Visionote: cursor → slot ${activeSlot}`)
 
@@ -156,28 +159,14 @@ async function showFullText(): Promise<void> {
 
   try {
     await switchToTextLayout()
-    const lines = item.content.split('\n')
-    const visibleText = lines.slice(textScrollLine).join('\n')
-    await displayText(visibleText)
-    appendEventLog(`Visionote: text ${cursorIndex} displayed (scroll=${textScrollLine})`)
+    await displayText(item.content)
+    appendEventLog(`Visionote: text ${cursorIndex} displayed`)
   } catch (err) {
     appendEventLog(`Visionote: text failed: ${err}`)
   }
 
   sending = false
   updateUI()
-}
-
-async function scrollText(direction: number): Promise<void> {
-  const items = getSavedItems()
-  const item = items[cursorIndex]
-  if (!item || item.type !== 'text') return
-
-  const lines = item.content.split('\n')
-  textScrollLine = Math.max(0, Math.min(lines.length - 1, textScrollLine + direction))
-  const visibleText = lines.slice(textScrollLine).join('\n')
-  await displayText(visibleText)
-  appendEventLog(`Visionote: text scroll → line ${textScrollLine}`)
 }
 
 // ---------------------------------------------------------------------------
@@ -196,7 +185,6 @@ async function openItem(): Promise<void> {
     void showFullImage()
   } else {
     mode = 'text'
-    textScrollLine = 0
     lastPageStart = -1
     appendEventLog(`Visionote: click → text mode (index=${cursorIndex})`)
     void showFullText()
@@ -229,11 +217,10 @@ function handleScrollUp(): void {
     if (items.length === 0) return
     cursorIndex = (cursorIndex - 1 + items.length) % items.length
     void showThumbnails()
-  } else if (mode === 'text') {
-    void scrollText(-1)
-  } else {
+  } else if (mode === 'image') {
     navigateItem(-1)
   }
+  // text mode: G2 handles scroll natively
 }
 
 function handleScrollDown(): void {
@@ -242,11 +229,10 @@ function handleScrollDown(): void {
     if (items.length === 0) return
     cursorIndex = (cursorIndex + 1) % items.length
     void showThumbnails()
-  } else if (mode === 'text') {
-    void scrollText(1)
-  } else {
+  } else if (mode === 'image') {
     navigateItem(1)
   }
+  // text mode: G2 handles scroll natively
 }
 
 function handleClick(): void {
@@ -305,7 +291,6 @@ export async function showSavedItemOnGlass(index: number): Promise<void> {
     if (getSavedItems().length > 1) await updateImageArrows()
   } else {
     mode = 'text'
-    textScrollLine = 0
     await switchToTextLayout()
     await displayText(item.content)
   }

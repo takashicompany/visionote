@@ -263,13 +263,13 @@ export async function switchToTextLayout(): Promise<void> {
   )
 }
 
-/** Display text content on the cursor container */
+/** Display text content on the event capture container (native scroll) */
 export async function displayText(content: string): Promise<void> {
   if (!bridge || !startupRendered) return
   await bridge.textContainerUpgrade(
     new TextContainerUpgrade({
-      containerID: CURSOR.id,
-      containerName: CURSOR.name,
+      containerID: 1,
+      containerName: 'evt',
       contentOffset: 0,
       contentLength: 2000,
       content,
