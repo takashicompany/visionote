@@ -34,6 +34,19 @@ function unlockUI(): void {
 
 let editingTextId: number | null = null
 
+function updateTextButtons(): void {
+  const saveBtn = document.getElementById('saveTextBtn')
+  const overwriteBtn = document.getElementById('overwriteTextBtn')
+  if (!saveBtn || !overwriteBtn) return
+  if (editingTextId) {
+    saveBtn.textContent = 'Save New Text'
+    overwriteBtn.style.display = ''
+  } else {
+    saveBtn.textContent = 'Save Text'
+    overwriteBtn.style.display = 'none'
+  }
+}
+
 function renderSavedList(): void {
   const list = document.getElementById('saved-list')!
   const countEl = document.getElementById('saved-count')!
@@ -72,6 +85,7 @@ function renderSavedList(): void {
         if (busy) return
         // Open text editor with this content
         editingTextId = item.id
+        updateTextButtons()
         const textInput = document.getElementById('text-input') as HTMLTextAreaElement
         textInput.value = item.content
         // Switch to text tab
@@ -135,6 +149,7 @@ async function boot() {
     tabImage.classList.add('active')
     tabText.classList.remove('active')
     editingTextId = null
+    updateTextButtons()
   })
 
   tabText.addEventListener('click', () => {
@@ -143,6 +158,7 @@ async function boot() {
     tabText.classList.add('active')
     tabImage.classList.remove('active')
     editingTextId = null
+    updateTextButtons()
     ;(document.getElementById('text-input') as HTMLTextAreaElement).value = ''
   })
 
@@ -268,7 +284,7 @@ async function boot() {
     }
   })
 
-  // Save Text button
+  // Save Text button (always saves as new)
   const saveTextBtn = document.getElementById('saveTextBtn') as HTMLButtonElement | null
   saveTextBtn?.addEventListener('click', async () => {
     if (busy) return
@@ -278,14 +294,9 @@ async function boot() {
 
     lockUI()
     saveTextBtn.textContent = 'Saving...'
-
-    if (editingTextId) {
-      await updateText(editingTextId, content)
-      editingTextId = null
-    } else {
-      await saveText(content)
-    }
-
+    await saveText(content)
+    editingTextId = null
+    updateTextButtons()
     renderSavedList()
     try {
       const { refreshThumbnails } = await import('../g2/app')
@@ -294,7 +305,32 @@ async function boot() {
     saveTextBtn.textContent = 'Saved!'
     setTimeout(() => {
       unlockUI()
-      saveTextBtn.textContent = 'Save Text'
+      updateTextButtons()
+    }, 1500)
+  })
+
+  // Overwrite Text button (only visible when editing existing text)
+  const overwriteTextBtn = document.getElementById('overwriteTextBtn') as HTMLButtonElement | null
+  overwriteTextBtn?.addEventListener('click', async () => {
+    if (busy || !editingTextId) return
+    const textInput = document.getElementById('text-input') as HTMLTextAreaElement
+    const content = textInput.value.trim()
+    if (!content) return
+
+    lockUI()
+    overwriteTextBtn.textContent = 'Saving...'
+    await updateText(editingTextId, content)
+    editingTextId = null
+    updateTextButtons()
+    renderSavedList()
+    try {
+      const { refreshThumbnails } = await import('../g2/app')
+      await refreshThumbnails()
+    } catch { /* not connected */ }
+    overwriteTextBtn.textContent = 'Saved!'
+    setTimeout(() => {
+      unlockUI()
+      updateTextButtons()
     }, 1500)
   })
 

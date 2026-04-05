@@ -92,7 +92,8 @@ h1 {
 }
 
 #sendTextBtn,
-#saveTextBtn {
+#saveTextBtn,
+#overwriteTextBtn {
   flex: 1;
   padding: 0.75rem;
   font-size: 1rem;
@@ -107,6 +108,9 @@ h1 {
 
 #saveTextBtn { background: #4a9eff; }
 #saveTextBtn:active { background: #357abd; }
+
+#overwriteTextBtn { background: #e67e22; }
+#overwriteTextBtn:active { background: #d35400; }
 
 /* Editor area */
 #editor-area {
