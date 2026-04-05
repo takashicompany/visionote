@@ -181,13 +181,15 @@ async function boot() {
 
   // Generate random test text (development)
   const testTextBtn = document.getElementById('testTextBtn') as HTMLButtonElement | null
-  testTextBtn?.addEventListener('click', async () => {
-    await generateTestText()
-    renderSavedList()
-    try {
-      const { refreshThumbnails } = await import('../g2/app')
-      await refreshThumbnails()
-    } catch { /* not connected */ }
+  testTextBtn?.addEventListener('click', () => {
+    const content = generateTestText()
+    // Switch to text tab and fill the form
+    imageSection.style.display = 'none'
+    textSection.style.display = ''
+    tabText.classList.add('active')
+    tabImage.classList.remove('active')
+    editingTextId = null
+    ;(document.getElementById('text-input') as HTMLTextAreaElement).value = content
   })
 
   // Send to glasses button

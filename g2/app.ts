@@ -207,33 +207,45 @@ async function openItem(): Promise<void> {
 // Event handlers
 // ---------------------------------------------------------------------------
 
-function handleScrollUp(): void {
+function navigateItem(direction: number): void {
   const items = getSavedItems()
   if (items.length === 0) return
+  cursorIndex = (cursorIndex + direction + items.length) % items.length
+  lastPageStart = -1
+  textScrollLine = 0
+  const item = items[cursorIndex]
+  if (item.type === 'text') {
+    mode = 'text'
+    void showFullText()
+  } else {
+    mode = 'image'
+    void showFullImage()
+  }
+}
 
+function handleScrollUp(): void {
   if (mode === 'thumbnails') {
+    const items = getSavedItems()
+    if (items.length === 0) return
     cursorIndex = (cursorIndex - 1 + items.length) % items.length
     void showThumbnails()
   } else if (mode === 'text') {
     void scrollText(-1)
   } else {
-    cursorIndex = (cursorIndex - 1 + items.length) % items.length
-    void showFullImage()
+    navigateItem(-1)
   }
 }
 
 function handleScrollDown(): void {
-  const items = getSavedItems()
-  if (items.length === 0) return
-
   if (mode === 'thumbnails') {
+    const items = getSavedItems()
+    if (items.length === 0) return
     cursorIndex = (cursorIndex + 1) % items.length
     void showThumbnails()
   } else if (mode === 'text') {
     void scrollText(1)
   } else {
-    cursorIndex = (cursorIndex + 1) % items.length
-    void showFullImage()
+    navigateItem(1)
   }
 }
 

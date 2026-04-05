@@ -769,29 +769,22 @@ export async function generateTestImage(): Promise<void> {
   document.getElementById('editor-area')!.style.display = ''
 }
 
-/** Generate a random test text and save it */
-export async function generateTestText(): Promise<SavedText> {
-  const topics = [
-    'Even G2 is an augmented reality glasses platform.',
-    'Visionote displays images and text on your glasses.',
-    'The display is 576x288 pixels with 4-bit greyscale.',
-    'You can scroll through text using the touch bar.',
-    'Double tap to return to the thumbnail view.',
-    'Tokyo weather: sunny, 22°C, humidity 45%.',
-    'Meeting at 3pm in conference room B.',
-    'Remember to buy milk, eggs, and bread.',
-    'The quick brown fox jumps over the lazy dog.',
-    '日本語テキストのテストです。\nEven G2のディスプレイに\nテキストを表示できます。',
-  ]
-  const lines: string[] = []
+/** Generate a random test text string */
+export function generateTestText(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん'
   const lineCount = 3 + Math.floor(Math.random() * 8)
+  const lines: string[] = []
   for (let i = 0; i < lineCount; i++) {
-    lines.push(topics[Math.floor(Math.random() * topics.length)])
+    const len = 5 + Math.floor(Math.random() * 30)
+    let line = ''
+    for (let j = 0; j < len; j++) {
+      line += chars[Math.floor(Math.random() * chars.length)]
+    }
+    lines.push(line)
   }
   const now = new Date()
   const ts = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`
-  const content = `[Test ${ts}]\n${lines.join('\n')}`
-  return saveText(content)
+  return `[Test ${ts}]\n${lines.join('\n')}`
 }
 
 export async function generateBlackPng(w: number, h: number): Promise<number[]> {
