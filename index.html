@@ -12,6 +12,11 @@
 <div id="app">
   <h1>Visionote <span id="app-version" style="font-size:0.4em;color:#888;font-weight:normal;"></span></h1>
 
+  <div id="mode-tabs">
+    <button id="tab-image" class="tab active">Image</button>
+    <button id="tab-text" class="tab">Text</button>
+  </div>
+
   <div id="image-section">
     <label id="file-label" for="file-input">Select Image</label>
     <input type="file" id="file-input" accept="image/*" />
@@ -45,6 +50,14 @@
     </div>
   </div>
 
+  <div id="text-section" style="display:none;">
+    <textarea id="text-input" rows="6" placeholder="Enter text to display on G2..."></textarea>
+    <div id="text-action-buttons">
+      <button id="sendTextBtn">Send Text</button>
+      <button id="saveTextBtn">Save Text</button>
+    </div>
+  </div>
+
   <div id="saved-section">
     <p id="saved-count">Saved Images (0):</p>
     <div id="saved-list"></div>
@@ -55,6 +68,7 @@
     <button id="connectBtn">Connect to G2</button>
     <button id="resendBtn">Resend to glasses</button>
     <button id="testImagesBtn">Generate Test Images</button>
+    <button id="testTextBtn">Generate Test Text</button>
     <pre id="event-log"></pre>
   </details>
 </div>

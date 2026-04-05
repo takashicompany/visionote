@@ -228,6 +228,130 @@ export async function switchToThumbnailLayout(): Promise<void> {
   )
 }
 
+/** Switch to text mode layout: full-screen text container, no image containers */
+export async function switchToTextLayout(): Promise<void> {
+  if (!bridge || !startupRendered) return
+  await bridge.rebuildPageContainer(
+    new RebuildPageContainer({
+      containerTotalNum: 2,
+      textObject: [
+        new TextContainerProperty({
+          containerID: 1,
+          containerName: 'evt',
+          content: ' ',
+          xPosition: 0,
+          yPosition: 0,
+          width: DISPLAY_WIDTH,
+          height: DISPLAY_HEIGHT,
+          isEventCapture: 1,
+          paddingLength: 0,
+        }),
+        new TextContainerProperty({
+          containerID: CURSOR.id,
+          containerName: CURSOR.name,
+          content: ' ',
+          xPosition: 0,
+          yPosition: 0,
+          width: 576,
+          height: DISPLAY_HEIGHT,
+          isEventCapture: 0,
+          paddingLength: 0,
+        }),
+      ],
+      imageObject: [],
+    }),
+  )
+}
+
+/** Display text content on the cursor container */
+export async function displayText(content: string): Promise<void> {
+  if (!bridge || !startupRendered) return
+  await bridge.textContainerUpgrade(
+    new TextContainerUpgrade({
+      containerID: CURSOR.id,
+      containerName: CURSOR.name,
+      contentOffset: 0,
+      contentLength: 2000,
+      content,
+    }),
+  )
+}
+
+/** Switch to thumbnail layout with mixed image/text slots.
+ *  textSlots: indices (0-3) that should be text containers instead of image containers.
+ *  textPreviews: content for each text slot.
+ */
+export async function switchToMixedThumbnailLayout(
+  textSlots: Map<number, string>,
+): Promise<void> {
+  if (!bridge || !startupRendered) return
+
+  const textObjects = [
+    new TextContainerProperty({
+      containerID: 1,
+      containerName: 'evt',
+      content: ' ',
+      xPosition: 0,
+      yPosition: 0,
+      width: DISPLAY_WIDTH,
+      height: DISPLAY_HEIGHT,
+      isEventCapture: 1,
+      paddingLength: 0,
+    }),
+    new TextContainerProperty({
+      containerID: CURSOR.id,
+      containerName: CURSOR.name,
+      content: ' ',
+      xPosition: 0,
+      yPosition: 0,
+      width: 576,
+      height: DISPLAY_HEIGHT,
+      isEventCapture: 0,
+      paddingLength: 0,
+    }),
+  ]
+
+  const imageObjects: ImageContainerProperty[] = []
+
+  for (let i = 0; i < CONTAINERS.length; i++) {
+    const c = CONTAINERS[i]
+    if (textSlots.has(i)) {
+      textObjects.push(
+        new TextContainerProperty({
+          containerID: 10 + i,
+          containerName: `txt-${i}`,
+          content: textSlots.get(i)!,
+          xPosition: c.x,
+          yPosition: c.y,
+          width: CONTAINER_W,
+          height: CONTAINER_H,
+          isEventCapture: 0,
+          paddingLength: 0,
+        }),
+      )
+    } else {
+      imageObjects.push(
+        new ImageContainerProperty({
+          containerID: c.id,
+          containerName: c.name,
+          xPosition: c.x,
+          yPosition: c.y,
+          width: CONTAINER_W,
+          height: CONTAINER_H,
+        }),
+      )
+    }
+  }
+
+  await bridge.rebuildPageContainer(
+    new RebuildPageContainer({
+      containerTotalNum: textObjects.length + imageObjects.length,
+      textObject: textObjects,
+      imageObject: imageObjects,
+    }),
+  )
+}
+
 export async function updateSingleImage(containerIndex: number, imageData: number[]): Promise<void> {
   if (!bridge || !startupRendered) return
   const c = CONTAINERS[containerIndex]

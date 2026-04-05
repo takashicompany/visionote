@@ -37,6 +37,77 @@ h1 {
   background: #357abd;
 }
 
+/* Mode tabs */
+#mode-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1rem;
+}
+
+.tab {
+  flex: 1;
+  padding: 0.6rem;
+  font-size: 1rem;
+  background: #333;
+  color: #888;
+  border: 1px solid #555;
+  cursor: pointer;
+}
+
+.tab:first-child {
+  border-radius: 8px 0 0 8px;
+}
+
+.tab:last-child {
+  border-radius: 0 8px 8px 0;
+}
+
+.tab.active {
+  background: #4a9eff;
+  color: white;
+  border-color: #4a9eff;
+}
+
+/* Text section */
+#text-section {
+  margin-top: 0;
+}
+
+#text-input {
+  width: 100%;
+  padding: 0.75rem;
+  font-size: 1rem;
+  background: #222;
+  color: #eee;
+  border: 1px solid #555;
+  border-radius: 8px;
+  resize: vertical;
+  font-family: system-ui, sans-serif;
+}
+
+#text-action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+#sendTextBtn,
+#saveTextBtn {
+  flex: 1;
+  padding: 0.75rem;
+  font-size: 1rem;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+#sendTextBtn { background: #2ecc71; }
+#sendTextBtn:active { background: #27ae60; }
+
+#saveTextBtn { background: #4a9eff; }
+#saveTextBtn:active { background: #357abd; }
+
 /* Editor area */
 #editor-area {
   margin-top: 1rem;
@@ -176,6 +247,17 @@ h1 {
   width: 60px;
   height: 60px;
   image-rendering: pixelated;
+}
+
+.saved-text-preview {
+  width: 60px;
+  height: 60px;
+  padding: 4px;
+  font-size: 0.5rem;
+  line-height: 1.2;
+  color: #ccc;
+  overflow: hidden;
+  word-break: break-all;
 }
 
 .saved-thumb .delete-btn {
