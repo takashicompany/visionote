@@ -2,7 +2,7 @@ import type { EvenAppBridge } from '@evenrealities/even_hub_sdk'
 import { appendEventLog } from '../_shared/log'
 import { setBridge, bridge } from './state'
 import {
-  initDisplay, sendImageToGlass, updateCursor, updateImageArrows,
+  initDisplay, sendImageToGlass, updatePageNumber, updateCursor, updateImageArrows,
   switchToImageLayout, switchToThumbnailLayout, switchToTextLayout,
   switchToMixedThumbnailLayout, displayText, updateSingleImage,
 } from './renderer'
@@ -93,7 +93,7 @@ async function showThumbnails(): Promise<void> {
     }
 
     // Show page number immediately after layout rebuild
-    await updateCursor(activeSlot, currentPage, maxPages)
+    await updatePageNumber(currentPage, maxPages)
 
     // Send image data only for image slots
     try {
@@ -200,7 +200,6 @@ function navigateItem(direction: number): void {
   if (items.length === 0) return
   cursorIndex = (cursorIndex + direction + items.length) % items.length
   lastPageStart = -1
-  textScrollLine = 0
   const item = items[cursorIndex]
   if (item.type === 'text') {
     mode = 'text'
@@ -271,7 +270,6 @@ export async function sendAndShowImage(quadrants: number[][]): Promise<void> {
 /** Send text and enter text mode */
 export async function sendTextToGlass(content: string): Promise<void> {
   mode = 'text'
-  textScrollLine = 0
   lastPageStart = -1
   await switchToTextLayout()
   await displayText(content)

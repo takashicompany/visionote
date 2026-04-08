@@ -93,6 +93,20 @@ const CURSOR_POS = [
   { row: 9, col: 17 },  // BR (slot 3)
 ]
 
+/** Show only page number (no cursor arrow) */
+export async function updatePageNumber(currentPage: number, maxPages: number): Promise<void> {
+  if (!bridge || !startupRendered) return
+  await bridge.textContainerUpgrade(
+    new TextContainerUpgrade({
+      containerID: CURSOR.id,
+      containerName: CURSOR.name,
+      contentOffset: 0,
+      contentLength: 2000,
+      content: `${currentPage}/${maxPages}\nLoading...`,
+    }),
+  )
+}
+
 /** Move cursor to the given slot using textContainerUpgrade (no rebuild needed) */
 export async function updateCursor(activeSlot: number, currentPage: number, maxPages: number): Promise<void> {
   if (!bridge || !startupRendered) return
