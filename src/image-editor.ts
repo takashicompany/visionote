@@ -29,6 +29,7 @@ export type SplitPngBytes = {
 export type SavedImage = {
   type: 'image'
   id: number
+  name: string
   quadrants: number[][] // [tl, tr, bl, br]
   previewDataUrl: string
   createdAt: number
@@ -37,6 +38,7 @@ export type SavedImage = {
 export type SavedText = {
   type: 'text'
   id: number
+  name: string
   content: string
   createdAt: number
 }
@@ -485,23 +487,30 @@ function base64ToNumberArray(b64: string): number[] {
   return arr
 }
 
+function generateDefaultName(type: 'image' | 'text', id: number): string {
+  return `${type}_${id}`
+}
+
 export async function loadSavedItems(): Promise<SavedItem[]> {
   try {
     const raw = await storageGet(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as Array<Record<string, unknown>>
       savedItems = parsed.map((item) => {
+        const id = item.id as number
         if (item.type === 'text') {
           return {
             type: 'text' as const,
-            id: item.id as number,
+            id,
+            name: (item.name as string | undefined) ?? generateDefaultName('text', id),
             content: item.content as string,
             createdAt: item.createdAt as number,
           }
         }
         return {
           type: 'image' as const,
-          id: item.id as number,
+          id,
+          name: (item.name as string | undefined) ?? generateDefaultName('image', id),
           quadrants: (item.quadrantsPng as string[]).map(base64ToNumberArray),
           previewDataUrl: item.previewDataUrl as string,
           createdAt: item.createdAt as number,
@@ -526,11 +535,12 @@ export async function loadSavedItems(): Promise<SavedItem[]> {
 async function persistSavedItems(): Promise<void> {
   const stored = savedItems.map((item) => {
     if (item.type === 'text') {
-      return { type: 'text', id: item.id, content: item.content, createdAt: item.createdAt }
+      return { type: 'text', id: item.id, name: item.name, content: item.content, createdAt: item.createdAt }
     }
     return {
       type: 'image',
       id: item.id,
+      name: item.name,
       quadrantsPng: item.quadrants.map(numberArrayToBase64),
       previewDataUrl: item.previewDataUrl,
       createdAt: item.createdAt,
@@ -543,7 +553,7 @@ async function persistActiveIndex(): Promise<void> {
   await storageSet(ACTIVE_INDEX_KEY, String(activeIndex))
 }
 
-export async function saveCurrentImage(): Promise<SavedImage | null> {
+export async function saveCurrentImage(name?: string): Promise<SavedImage | null> {
   const split = await getGreyscalePngBytes()
   if (!split) return null
   const preview = getPreviewDataUrl()
@@ -553,6 +563,7 @@ export async function saveCurrentImage(): Promise<SavedImage | null> {
   const entry: SavedImage = {
     type: 'image',
     id,
+    name: name ?? generateDefaultName('image', id),
     quadrants: split.quadrants,
     previewDataUrl: preview,
     createdAt: id,
@@ -564,9 +575,15 @@ export async function saveCurrentImage(): Promise<SavedImage | null> {
   return entry
 }
 
-export async function saveText(content: string): Promise<SavedText> {
+export async function saveText(content: string, name?: string): Promise<SavedText> {
   const id = Date.now()
-  const entry: SavedText = { type: 'text', id, content, createdAt: id }
+  const entry: SavedText = {
+    type: 'text',
+    id,
+    name: name ?? generateDefaultName('text', id),
+    content,
+    createdAt: id,
+  }
   savedItems.push(entry)
   activeIndex = savedItems.length - 1
   await persistSavedItems()
@@ -574,12 +591,31 @@ export async function saveText(content: string): Promise<SavedText> {
   return entry
 }
 
-export async function updateText(id: number, content: string): Promise<void> {
+export async function updateItem(id: number, updates: { name?: string; content?: string }): Promise<void> {
   const item = savedItems.find((i) => i.id === id)
-  if (item && item.type === 'text') {
-    item.content = content
-    await persistSavedItems()
+  if (!item) return
+  if (updates.name !== undefined) item.name = updates.name
+  if (updates.content !== undefined && item.type === 'text') item.content = updates.content
+  await persistSavedItems()
+}
+
+export async function updateText(id: number, content: string): Promise<void> {
+  await updateItem(id, { content })
+}
+
+export async function reorderItems(fromIdx: number, toIdx: number): Promise<void> {
+  if (fromIdx === toIdx) return
+  const [item] = savedItems.splice(fromIdx, 1)
+  savedItems.splice(toIdx, 0, item)
+  if (activeIndex === fromIdx) {
+    activeIndex = toIdx
+  } else if (fromIdx < toIdx) {
+    if (activeIndex > fromIdx && activeIndex <= toIdx) activeIndex--
+  } else {
+    if (activeIndex >= toIdx && activeIndex < fromIdx) activeIndex++
   }
+  await persistSavedItems()
+  await persistActiveIndex()
 }
 
 export async function deleteSavedItem(id: number): Promise<void> {

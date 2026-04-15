@@ -10,14 +10,38 @@
 <body>
 
 <div id="app">
-  <h1>Visionote <span id="app-version" style="font-size:0.4em;color:#888;font-weight:normal;"></span></h1>
 
-  <div id="mode-tabs">
-    <button id="tab-image" class="tab active">Image</button>
-    <button id="tab-text" class="tab">Text</button>
+  <!-- ==================== Root screen ==================== -->
+  <div id="screen-root" class="screen active">
+    <h1>Visionote <span id="app-version" style="font-size:0.4em;color:#888;font-weight:normal;"></span></h1>
+
+    <div id="create-buttons">
+      <button id="btn-create-image" class="create-btn">+ Create Image</button>
+      <button id="btn-create-text" class="create-btn">+ Create Text</button>
+    </div>
+
+    <div id="saved-section">
+      <p id="saved-count">Saved (0):</p>
+      <div id="saved-list"></div>
+    </div>
+
+    <details id="dev-section">
+      <summary>Development</summary>
+      <button id="connectBtn">Connect to G2</button>
+      <button id="resendBtn">Resend to glasses</button>
+      <button id="testImagesBtn">Generate Test Images</button>
+      <button id="testTextBtn">Generate Test Text</button>
+      <pre id="event-log"></pre>
+    </details>
   </div>
 
-  <div id="image-section">
+  <!-- ==================== Image creation screen ==================== -->
+  <div id="screen-image-create" class="screen">
+    <div class="screen-header">
+      <button class="back-btn" id="back-from-image-create">← Back</button>
+      <h2>Create Image</h2>
+    </div>
+
     <label id="file-label" for="file-input">Select Image</label>
     <input type="file" id="file-input" accept="image/*" />
 
@@ -43,35 +67,74 @@
         </div>
       </div>
 
+      <div class="name-row">
+        <label>Name</label>
+        <input type="text" id="image-name-input" placeholder="image_..." />
+      </div>
+
       <div id="action-buttons">
         <button id="sendBtn">Send Image</button>
         <button id="saveBtn">Save Image</button>
       </div>
     </div>
-  </div>
 
-  <div id="text-section" style="display:none;">
-    <textarea id="text-input" rows="6" placeholder="Enter text to display on G2..."></textarea>
-    <div id="text-action-buttons">
-      <button id="sendTextBtn">Send Text</button>
-      <button id="saveTextBtn">Save Text</button>
-      <button id="overwriteTextBtn" style="display:none;">Overwrite Text</button>
+    <div class="dev-section-sub">
+      <button id="testImagesBtn-create">Generate Test Images</button>
     </div>
   </div>
 
-  <div id="saved-section">
-    <p id="saved-count">Saved Images (0):</p>
-    <div id="saved-list"></div>
+  <!-- ==================== Text creation screen ==================== -->
+  <div id="screen-text-create" class="screen">
+    <div class="screen-header">
+      <button class="back-btn" id="back-from-text-create">← Back</button>
+      <h2>Create Text</h2>
+    </div>
+
+    <textarea id="text-input" rows="6" placeholder="Enter text to display on G2..."></textarea>
+
+    <div class="name-row">
+      <label>Name</label>
+      <input type="text" id="text-name-input" placeholder="text_..." />
+    </div>
+
+    <div id="text-action-buttons">
+      <button id="sendTextBtn">Send Text</button>
+      <button id="saveTextBtn">Save Text</button>
+    </div>
+
+    <div class="dev-section-sub">
+      <button id="testTextBtn-create">Generate Test Text</button>
+    </div>
   </div>
 
-  <details id="dev-section">
-    <summary>Development</summary>
-    <button id="connectBtn">Connect to G2</button>
-    <button id="resendBtn">Resend to glasses</button>
-    <button id="testImagesBtn">Generate Test Images</button>
-    <button id="testTextBtn">Generate Test Text</button>
-    <pre id="event-log"></pre>
-  </details>
+  <!-- ==================== Item detail/edit screen ==================== -->
+  <div id="screen-item-detail" class="screen">
+    <div class="screen-header">
+      <button class="back-btn" id="back-from-detail">← Back</button>
+      <h2 id="detail-title">Detail</h2>
+    </div>
+
+    <div id="detail-image-section" style="display:none;">
+      <img id="detail-image-preview" />
+    </div>
+
+    <div id="detail-text-section" style="display:none;">
+      <textarea id="detail-text-input" rows="6"></textarea>
+    </div>
+
+    <div class="name-row">
+      <label>Name</label>
+      <input type="text" id="detail-name-input" />
+    </div>
+
+    <div id="detail-action-buttons">
+      <button id="detail-send-btn">Show on G2</button>
+      <button id="detail-save-btn">Save</button>
+    </div>
+
+    <button id="detail-delete-btn" class="delete-item-btn">Delete</button>
+  </div>
+
 </div>
 
 <script type="module" src="/src/main.ts"></script>
