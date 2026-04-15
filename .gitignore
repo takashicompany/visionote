@@ -3,3 +3,4 @@ dist/
 *.ehpk
 qr_*.png
 glasses_*.png
+.playwright-mcp/

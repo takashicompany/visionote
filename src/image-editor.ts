@@ -27,13 +27,23 @@ export type SplitPngBytes = {
 }
 
 export type SavedImage = {
+  type: 'image'
   id: number
   quadrants: number[][] // [tl, tr, bl, br]
   previewDataUrl: string
   createdAt: number
 }
 
-let savedImages: SavedImage[] = []
+export type SavedText = {
+  type: 'text'
+  id: number
+  content: string
+  createdAt: number
+}
+
+export type SavedItem = SavedImage | SavedText
+
+let savedItems: SavedItem[] = []
 let activeIndex = -1
 
 type EditorState = {
@@ -475,42 +485,57 @@ function base64ToNumberArray(b64: string): number[] {
   return arr
 }
 
-export async function loadSavedImages(): Promise<SavedImage[]> {
+export async function loadSavedItems(): Promise<SavedItem[]> {
   try {
     const raw = await storageGet(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as Array<Record<string, unknown>>
-      savedImages = parsed
-        .filter((item) => Array.isArray(item.quadrantsPng))
-        .map((item) => ({
+      savedItems = parsed.map((item) => {
+        if (item.type === 'text') {
+          return {
+            type: 'text' as const,
+            id: item.id as number,
+            content: item.content as string,
+            createdAt: item.createdAt as number,
+          }
+        }
+        return {
+          type: 'image' as const,
           id: item.id as number,
           quadrants: (item.quadrantsPng as string[]).map(base64ToNumberArray),
           previewDataUrl: item.previewDataUrl as string,
           createdAt: item.createdAt as number,
-        }))
+        }
+      })
     } else {
-      savedImages = []
+      savedItems = []
     }
   } catch {
-    savedImages = []
+    savedItems = []
   }
   try {
     const idx = await storageGet(ACTIVE_INDEX_KEY)
     activeIndex = idx != null ? Number(idx) : -1
-    if (activeIndex >= savedImages.length) activeIndex = savedImages.length - 1
+    if (activeIndex >= savedItems.length) activeIndex = savedItems.length - 1
   } catch {
     activeIndex = -1
   }
-  return savedImages
+  return savedItems
 }
 
-async function persistSavedImages(): Promise<void> {
-  const stored = savedImages.map((img) => ({
-    id: img.id,
-    quadrantsPng: img.quadrants.map(numberArrayToBase64),
-    previewDataUrl: img.previewDataUrl,
-    createdAt: img.createdAt,
-  }))
+async function persistSavedItems(): Promise<void> {
+  const stored = savedItems.map((item) => {
+    if (item.type === 'text') {
+      return { type: 'text', id: item.id, content: item.content, createdAt: item.createdAt }
+    }
+    return {
+      type: 'image',
+      id: item.id,
+      quadrantsPng: item.quadrants.map(numberArrayToBase64),
+      previewDataUrl: item.previewDataUrl,
+      createdAt: item.createdAt,
+    }
+  })
   await storageSet(STORAGE_KEY, JSON.stringify(stored))
 }
 
@@ -526,61 +551,66 @@ export async function saveCurrentImage(): Promise<SavedImage | null> {
 
   const id = Date.now()
   const entry: SavedImage = {
+    type: 'image',
     id,
     quadrants: split.quadrants,
     previewDataUrl: preview,
     createdAt: id,
   }
-  savedImages.push(entry)
-  activeIndex = savedImages.length - 1
-  await persistSavedImages()
+  savedItems.push(entry)
+  activeIndex = savedItems.length - 1
+  await persistSavedItems()
   await persistActiveIndex()
   return entry
 }
 
-export async function deleteSavedImage(id: number): Promise<void> {
-  const idx = savedImages.findIndex((img) => img.id === id)
-  if (idx === -1) return
-  savedImages.splice(idx, 1)
-  if (activeIndex >= savedImages.length) {
-    activeIndex = savedImages.length - 1
+export async function saveText(content: string): Promise<SavedText> {
+  const id = Date.now()
+  const entry: SavedText = { type: 'text', id, content, createdAt: id }
+  savedItems.push(entry)
+  activeIndex = savedItems.length - 1
+  await persistSavedItems()
+  await persistActiveIndex()
+  return entry
+}
+
+export async function updateText(id: number, content: string): Promise<void> {
+  const item = savedItems.find((i) => i.id === id)
+  if (item && item.type === 'text') {
+    item.content = content
+    await persistSavedItems()
   }
-  await persistSavedImages()
+}
+
+export async function deleteSavedItem(id: number): Promise<void> {
+  const idx = savedItems.findIndex((item) => item.id === id)
+  if (idx === -1) return
+  savedItems.splice(idx, 1)
+  if (activeIndex >= savedItems.length) {
+    activeIndex = savedItems.length - 1
+  }
+  await persistSavedItems()
   await persistActiveIndex()
 }
 
-export function getSavedImages(): SavedImage[] {
-  return savedImages
+export function getSavedItems(): SavedItem[] {
+  return savedItems
 }
 
 export function getActiveIndex(): number {
   return activeIndex
 }
 
-export async function selectSavedImage(index: number): Promise<SavedImage | null> {
-  if (index < 0 || index >= savedImages.length) return null
+export async function selectSavedItem(index: number): Promise<SavedItem | null> {
+  if (index < 0 || index >= savedItems.length) return null
   activeIndex = index
   await persistActiveIndex()
-  return savedImages[index]
+  return savedItems[index]
 }
 
-export async function selectNext(): Promise<SavedImage | null> {
-  if (savedImages.length <= 1) return null
-  activeIndex = (activeIndex + 1) % savedImages.length
-  await persistActiveIndex()
-  return savedImages[activeIndex]
-}
-
-export async function selectPrev(): Promise<SavedImage | null> {
-  if (savedImages.length <= 1) return null
-  activeIndex = (activeIndex - 1 + savedImages.length) % savedImages.length
-  await persistActiveIndex()
-  return savedImages[activeIndex]
-}
-
-export function getActiveSavedImage(): SavedImage | null {
-  if (activeIndex < 0 || activeIndex >= savedImages.length) return null
-  return savedImages[activeIndex]
+export function getActiveSavedItem(): SavedItem | null {
+  if (activeIndex < 0 || activeIndex >= savedItems.length) return null
+  return savedItems[activeIndex]
 }
 
 // ---------------------------------------------------------------------------
@@ -737,6 +767,24 @@ export async function generateTestImage(): Promise<void> {
   resetTransform()
   render()
   document.getElementById('editor-area')!.style.display = ''
+}
+
+/** Generate a random test text string */
+export function generateTestText(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん'
+  const lineCount = 3 + Math.floor(Math.random() * 8)
+  const lines: string[] = []
+  for (let i = 0; i < lineCount; i++) {
+    const len = 5 + Math.floor(Math.random() * 30)
+    let line = ''
+    for (let j = 0; j < len; j++) {
+      line += chars[Math.floor(Math.random() * chars.length)]
+    }
+    lines.push(line)
+  }
+  const now = new Date()
+  const ts = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`
+  return `[Test ${ts}]\n${lines.join('\n')}`
 }
 
 export async function generateBlackPng(w: number, h: number): Promise<number[]> {
