@@ -277,6 +277,49 @@ export async function switchToTextLayout(): Promise<void> {
   )
 }
 
+const MENU_W = 300
+const MENU_H = 180
+const MENU_X = Math.floor((DISPLAY_WIDTH - MENU_W) / 2)
+const MENU_Y = Math.floor((DISPLAY_HEIGHT - MENU_H) / 2)
+
+/** Switch to menu layout: centered bordered container + event capture layer */
+export async function switchToMenuLayout(): Promise<void> {
+  if (!bridge || !startupRendered) return
+  await bridge.rebuildPageContainer(
+    new RebuildPageContainer({
+      containerTotalNum: 2,
+      textObject: [
+        new TextContainerProperty({
+          containerID: 1,
+          containerName: 'evt',
+          content: ' ',
+          xPosition: 0,
+          yPosition: 0,
+          width: DISPLAY_WIDTH,
+          height: DISPLAY_HEIGHT,
+          isEventCapture: 1,
+          paddingLength: 0,
+        }),
+        new TextContainerProperty({
+          containerID: CURSOR.id,
+          containerName: CURSOR.name,
+          content: ' ',
+          xPosition: MENU_X,
+          yPosition: MENU_Y,
+          width: MENU_W,
+          height: MENU_H,
+          isEventCapture: 0,
+          paddingLength: 8,
+          borderWidth: 2,
+          borderColor: 0xFFFFFFFF,
+          borderRadius: 4,
+        }),
+      ],
+      imageObject: [],
+    }),
+  )
+}
+
 /** Display text content on the event capture container (native scroll) */
 export async function displayText(content: string): Promise<void> {
   if (!bridge || !startupRendered) return
@@ -367,8 +410,10 @@ export async function switchToMixedThumbnailLayout(
 }
 
 /** Update cursor container with menu.
- *  Row 0: Thumbnails/List toggle (shows active with 【】)
- *  Row 1: Exit
+ *  Header: MENU
+ *  Row 0: Back
+ *  Row 1: Thumbnails/List toggle (shows active with 【】)
+ *  Row 2: Exit
  */
 export async function displayMenu(cursorIdx: number, activeMode: 'thumbnails' | 'list'): Promise<void> {
   if (!bridge || !startupRendered) return
@@ -376,8 +421,11 @@ export async function displayMenu(cursorIdx: number, activeMode: 'thumbnails' | 
     ? '【Thumbnails】　List'
     : '　Thumbnails　【List】'
   const rows = [
-    (cursorIdx === 0 ? '▶' : '　') + toggleRow,
-    (cursorIdx === 1 ? '▶' : '　') + 'Exit',
+    'MENU',
+    '',
+    (cursorIdx === 0 ? '▶ ' : '　') + 'Back',
+    (cursorIdx === 1 ? '▶ ' : '　') + toggleRow,
+    (cursorIdx === 2 ? '▶ ' : '　') + 'Exit',
   ]
   await bridge.textContainerUpgrade(
     new TextContainerUpgrade({

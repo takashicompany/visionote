@@ -3,7 +3,7 @@ import { appendEventLog } from '../_shared/log'
 import { setBridge, bridge } from './state'
 import {
   initDisplay, sendImageToGlass, updatePageNumber, updateCursor, updateImageArrows,
-  switchToImageLayout, switchToThumbnailLayout, switchToTextLayout,
+  switchToImageLayout, switchToThumbnailLayout, switchToTextLayout, switchToMenuLayout,
   switchToMixedThumbnailLayout, displayText, updateSingleImage,
   displayList, displayMenu,
 } from './renderer'
@@ -233,13 +233,23 @@ async function updateListDisplay(): Promise<void> {
 // Menu overlay
 // ---------------------------------------------------------------------------
 
-async function showMenuOverlay(): Promise<void> {
+/** メニュー入場時: ボーダー付きレイアウトに切替 + 描画 */
+async function openMenu(): Promise<void> {
   try {
-    await switchToTextLayout()
+    await switchToMenuLayout()
     await displayMenu(menuCursorIndex, previousRootMode)
-    appendEventLog(`Visionote: menu (cursor=${menuCursorIndex}, active=${previousRootMode})`)
+    appendEventLog(`Visionote: menu opened (active=${previousRootMode})`)
   } catch (err) {
-    appendEventLog(`Visionote: menu failed: ${err}`)
+    appendEventLog(`Visionote: menu open failed: ${err}`)
+  }
+}
+
+/** メニュー内カーソル移動・トグル時: 描画のみ（レイアウト切替なし） */
+async function updateMenuDisplay(): Promise<void> {
+  try {
+    await displayMenu(menuCursorIndex, previousRootMode)
+  } catch (err) {
+    appendEventLog(`Visionote: menu update failed: ${err}`)
   }
 }
 
@@ -275,8 +285,8 @@ function handleScrollUp(): void {
     cursorIndex = (cursorIndex - 1 + items.length) % items.length
     void updateListDisplay()
   } else if (mode === 'menu') {
-    menuCursorIndex = (menuCursorIndex - 1 + 2) % 2
-    void showMenuOverlay()
+    menuCursorIndex = (menuCursorIndex - 1 + 3) % 3
+    void updateMenuDisplay()
   }
   // text mode: G2 handles scroll natively
 }
@@ -294,8 +304,8 @@ function handleScrollDown(): void {
     cursorIndex = (cursorIndex + 1) % items.length
     void updateListDisplay()
   } else if (mode === 'menu') {
-    menuCursorIndex = (menuCursorIndex + 1) % 2
-    void showMenuOverlay()
+    menuCursorIndex = (menuCursorIndex + 1) % 3
+    void updateMenuDisplay()
   }
   // text mode: G2 handles scroll natively
 }
@@ -305,11 +315,21 @@ function handleClick(): void {
     void openItem()
   } else if (mode === 'menu') {
     if (menuCursorIndex === 0) {
+      // Back: return to current root mode (same as double tap)
+      mode = previousRootMode
+      lastPageStart = -1
+      appendEventLog(`Visionote: menu Back → ${mode}`)
+      if (mode === 'thumbnails') {
+        void showThumbnails()
+      } else {
+        void showList()
+      }
+    } else if (menuCursorIndex === 1) {
       // Toggle: update active mode indicator only, stay in menu
       previousRootMode = previousRootMode === 'thumbnails' ? 'list' : 'thumbnails'
       void setRootMode(previousRootMode)
       appendEventLog(`Visionote: menu toggle → ${previousRootMode}`)
-      void showMenuOverlay()
+      void updateMenuDisplay()
     } else {
       if (bridge) {
         void bridge.shutDownPageContainer(1)
@@ -331,10 +351,10 @@ function handleDoubleClick(): void {
     }
   } else if (mode === 'thumbnails' || mode === 'list') {
     previousRootMode = mode
-    menuCursorIndex = mode === 'thumbnails' ? 0 : 1
+    menuCursorIndex = 0  // 開くたびにリセット
     mode = 'menu'
     appendEventLog(`Visionote: double-click → menu (from ${previousRootMode})`)
-    void showMenuOverlay()
+    void openMenu()
   } else if (mode === 'menu') {
     mode = previousRootMode
     lastPageStart = -1
@@ -433,7 +453,7 @@ async function onRestore(): Promise<void> {
       } else {
         await showThumbnails()
       }
-      await showMenuOverlay()
+      await openMenu()
     }
     appendEventLog('Visionote: display restored after foreground return')
   } catch (err) {
