@@ -5,23 +5,27 @@ import {
   initDisplay, sendImageToGlass, updatePageNumber, updateCursor, updateImageArrows,
   switchToImageLayout, switchToThumbnailLayout, switchToTextLayout,
   switchToMixedThumbnailLayout, displayText, updateSingleImage,
+  displayList, displayMenu,
 } from './renderer'
 import { onEvenHubEvent, setEventHandlers } from './events'
 import {
   getSavedItems, selectSavedItem,
   getActiveIndex,
   generateThumbnailPng, generateBlackPng,
+  getRootMode, setRootMode,
 } from '../src/image-editor'
 import type { SavedItem } from '../src/image-editor'
 import { CONTAINER_W, CONTAINER_H } from './layout'
 import { initKeepAlive } from './keep-alive'
 
-type AppMode = 'thumbnails' | 'image' | 'text'
+type AppMode = 'thumbnails' | 'image' | 'text' | 'list' | 'menu'
 let mode: AppMode = 'thumbnails'
 let cursorIndex = 0
 let pageStart = 0
 let lastPageStart = -1
 let sending = false
+let menuCursorIndex = 0
+let previousRootMode: 'thumbnails' | 'list' = 'thumbnails'
 
 const win = window as unknown as Record<string, ((() => void) | undefined)>
 function updateUI(): void { win.__visionoteRenderSavedList?.() }
@@ -192,6 +196,54 @@ async function openItem(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// List mode
+// ---------------------------------------------------------------------------
+
+async function showList(): Promise<void> {
+  if (sending) return
+  sending = true
+
+  const items = getSavedItems()
+  if (cursorIndex >= items.length) cursorIndex = Math.max(0, items.length - 1)
+  if (cursorIndex < 0) cursorIndex = 0
+
+  try {
+    await switchToTextLayout()
+    if (items.length > 0) await displayList(items, cursorIndex)
+    appendEventLog(`Visionote: list mode (cursor=${cursorIndex})`)
+  } catch (err) {
+    appendEventLog(`Visionote: list failed: ${err}`)
+  }
+
+  sending = false
+  updateUI()
+}
+
+async function updateListDisplay(): Promise<void> {
+  const items = getSavedItems()
+  if (items.length === 0) return
+  try {
+    await displayList(items, cursorIndex)
+  } catch (err) {
+    appendEventLog(`Visionote: list update failed: ${err}`)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Menu overlay
+// ---------------------------------------------------------------------------
+
+async function showMenuOverlay(): Promise<void> {
+  try {
+    await switchToTextLayout()
+    await displayMenu(menuCursorIndex, previousRootMode)
+    appendEventLog(`Visionote: menu (cursor=${menuCursorIndex}, active=${previousRootMode})`)
+  } catch (err) {
+    appendEventLog(`Visionote: menu failed: ${err}`)
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Event handlers
 // ---------------------------------------------------------------------------
 
@@ -211,45 +263,86 @@ function navigateItem(direction: number): void {
 }
 
 function handleScrollUp(): void {
+  const items = getSavedItems()
   if (mode === 'thumbnails') {
-    const items = getSavedItems()
     if (items.length === 0) return
     cursorIndex = (cursorIndex - 1 + items.length) % items.length
     void showThumbnails()
   } else if (mode === 'image') {
     navigateItem(-1)
+  } else if (mode === 'list') {
+    if (items.length === 0) return
+    cursorIndex = (cursorIndex - 1 + items.length) % items.length
+    void updateListDisplay()
+  } else if (mode === 'menu') {
+    menuCursorIndex = (menuCursorIndex - 1 + 2) % 2
+    void showMenuOverlay()
   }
   // text mode: G2 handles scroll natively
 }
 
 function handleScrollDown(): void {
+  const items = getSavedItems()
   if (mode === 'thumbnails') {
-    const items = getSavedItems()
     if (items.length === 0) return
     cursorIndex = (cursorIndex + 1) % items.length
     void showThumbnails()
   } else if (mode === 'image') {
     navigateItem(1)
+  } else if (mode === 'list') {
+    if (items.length === 0) return
+    cursorIndex = (cursorIndex + 1) % items.length
+    void updateListDisplay()
+  } else if (mode === 'menu') {
+    menuCursorIndex = (menuCursorIndex + 1) % 2
+    void showMenuOverlay()
   }
   // text mode: G2 handles scroll natively
 }
 
 function handleClick(): void {
-  if (mode === 'thumbnails') {
+  if (mode === 'thumbnails' || mode === 'list') {
     void openItem()
+  } else if (mode === 'menu') {
+    if (menuCursorIndex === 0) {
+      // Toggle: update active mode indicator only, stay in menu
+      previousRootMode = previousRootMode === 'thumbnails' ? 'list' : 'thumbnails'
+      void setRootMode(previousRootMode)
+      appendEventLog(`Visionote: menu toggle → ${previousRootMode}`)
+      void showMenuOverlay()
+    } else {
+      if (bridge) {
+        void bridge.shutDownPageContainer(1)
+        appendEventLog('Visionote: exit requested')
+      }
+    }
   }
 }
 
 function handleDoubleClick(): void {
   if (mode === 'image' || mode === 'text') {
-    mode = 'thumbnails'
+    mode = previousRootMode
     lastPageStart = -1
-    appendEventLog('Visionote: double-click → thumbnail mode')
-    void showThumbnails()
-  } else {
-    if (bridge) {
-      void bridge.shutDownPageContainer(1)
-      appendEventLog('Visionote: exit requested')
+    appendEventLog(`Visionote: double-click → ${mode}`)
+    if (mode === 'thumbnails') {
+      void showThumbnails()
+    } else {
+      void showList()
+    }
+  } else if (mode === 'thumbnails' || mode === 'list') {
+    previousRootMode = mode
+    menuCursorIndex = mode === 'thumbnails' ? 0 : 1
+    mode = 'menu'
+    appendEventLog(`Visionote: double-click → menu (from ${previousRootMode})`)
+    void showMenuOverlay()
+  } else if (mode === 'menu') {
+    mode = previousRootMode
+    lastPageStart = -1
+    appendEventLog(`Visionote: double-click → return to ${mode}`)
+    if (mode === 'thumbnails') {
+      void showThumbnails()
+    } else {
+      void showList()
     }
   }
 }
@@ -305,10 +398,15 @@ export async function refreshThumbnails(): Promise<void> {
 export async function showInitialView(): Promise<void> {
   const items = getSavedItems()
   if (items.length > 0) {
-    mode = 'thumbnails'
+    previousRootMode = await getRootMode()
+    mode = previousRootMode
     cursorIndex = Math.max(0, getActiveIndex())
     lastPageStart = -1
-    await showThumbnails()
+    if (mode === 'thumbnails') {
+      await showThumbnails()
+    } else {
+      await showList()
+    }
   }
 }
 
@@ -325,8 +423,17 @@ async function onRestore(): Promise<void> {
       await showThumbnails()
     } else if (mode === 'image') {
       await showFullImage()
-    } else {
+    } else if (mode === 'text') {
       await showFullText()
+    } else if (mode === 'list') {
+      await showList()
+    } else if (mode === 'menu') {
+      if (previousRootMode === 'list') {
+        await showList()
+      } else {
+        await showThumbnails()
+      }
+      await showMenuOverlay()
     }
     appendEventLog('Visionote: display restored after foreground return')
   } catch (err) {

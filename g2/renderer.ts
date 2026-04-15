@@ -366,6 +366,57 @@ export async function switchToMixedThumbnailLayout(
   )
 }
 
+/** Update cursor container with menu.
+ *  Row 0: Thumbnails/List toggle (shows active with 【】)
+ *  Row 1: Exit
+ */
+export async function displayMenu(cursorIdx: number, activeMode: 'thumbnails' | 'list'): Promise<void> {
+  if (!bridge || !startupRendered) return
+  const toggleRow = activeMode === 'thumbnails'
+    ? '【Thumbnails】　List'
+    : '　Thumbnails　【List】'
+  const rows = [
+    (cursorIdx === 0 ? '▶' : '　') + toggleRow,
+    (cursorIdx === 1 ? '▶' : '　') + 'Exit',
+  ]
+  await bridge.textContainerUpgrade(
+    new TextContainerUpgrade({
+      containerID: CURSOR.id,
+      containerName: CURSOR.name,
+      contentOffset: 0,
+      contentLength: 2000,
+      content: rows.join('\n'),
+    }),
+  )
+}
+
+const LIST_VISIBLE = 10
+
+/** Update cursor container with filename list */
+export async function displayList(items: Array<{ name: string }>, cursorIdx: number): Promise<void> {
+  if (!bridge || !startupRendered) return
+  const total = items.length
+  if (total === 0) return
+
+  let start = cursorIdx - Math.floor(LIST_VISIBLE / 2)
+  start = Math.max(0, start)
+  start = Math.min(start, Math.max(0, total - LIST_VISIBLE))
+
+  const lines: string[] = []
+  for (let i = start; i < Math.min(start + LIST_VISIBLE, total); i++) {
+    lines.push((i === cursorIdx ? '▶ ' : '　') + items[i].name)
+  }
+  await bridge.textContainerUpgrade(
+    new TextContainerUpgrade({
+      containerID: CURSOR.id,
+      containerName: CURSOR.name,
+      contentOffset: 0,
+      contentLength: 2000,
+      content: lines.join('\n'),
+    }),
+  )
+}
+
 export async function updateSingleImage(containerIndex: number, imageData: number[]): Promise<void> {
   if (!bridge || !startupRendered) return
   const c = CONTAINERS[containerIndex]

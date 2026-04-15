@@ -5,6 +5,7 @@ const QUAD_W = CONTAINER_W  // 200
 const QUAD_H = CONTAINER_H  // 100
 const STORAGE_KEY = 'visionote-saved-images'
 const ACTIVE_INDEX_KEY = 'visionote-active-index'
+const ROOT_MODE_KEY = 'visionote-root-mode'
 
 async function storageGet(key: string): Promise<string | null> {
   if (bridge) {
@@ -827,4 +828,13 @@ export async function generateBlackPng(w: number, h: number): Promise<number[]> 
   const pixels = new Uint8Array(w * h)
   const png = await encodeGreyscalePng(w, h, pixels)
   return Array.from(png)
+}
+
+export async function getRootMode(): Promise<'thumbnails' | 'list'> {
+  const val = await storageGet(ROOT_MODE_KEY)
+  return val === 'list' ? 'list' : 'thumbnails'
+}
+
+export async function setRootMode(mode: 'thumbnails' | 'list'): Promise<void> {
+  await storageSet(ROOT_MODE_KEY, mode)
 }
