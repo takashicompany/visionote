@@ -421,9 +421,29 @@ async function boot() {
     setTimeout(() => { unlockUI(); detailSaveBtn.disabled = false; detailSaveBtn.textContent = 'Save'; showScreen('screen-root') }, 1000)
   })
 
-  document.getElementById('detail-delete-btn')!.addEventListener('click', async () => {
+  const deleteBtn = document.getElementById('detail-delete-btn') as HTMLButtonElement
+  let deleteConfirmPending = false
+  let deleteConfirmTimer: ReturnType<typeof setTimeout> | null = null
+
+  const resetDeleteBtn = () => {
+    deleteConfirmPending = false
+    deleteBtn.textContent = 'Delete'
+    deleteBtn.style.background = ''
+    deleteBtn.style.color = ''
+    if (deleteConfirmTimer) { clearTimeout(deleteConfirmTimer); deleteConfirmTimer = null }
+  }
+
+  deleteBtn.addEventListener('click', async () => {
     if (busy || !detailItemId) return
-    if (!confirm('Delete this item?')) return
+    if (!deleteConfirmPending) {
+      deleteConfirmPending = true
+      deleteBtn.textContent = 'Tap again to delete'
+      deleteBtn.style.background = '#e74c3c'
+      deleteBtn.style.color = 'white'
+      deleteConfirmTimer = setTimeout(resetDeleteBtn, 3000)
+      return
+    }
+    resetDeleteBtn()
     lockUI()
     await deleteSavedItem(detailItemId)
     detailItemId = null
@@ -435,6 +455,9 @@ async function boot() {
     unlockUI()
     showScreen('screen-root')
   })
+
+  // 別画面に移動したらキャンセル
+  document.getElementById('back-from-detail')!.addEventListener('click', resetDeleteBtn, { capture: true })
 
   // --- Dev section ---
   const connectBtn = document.getElementById('connectBtn') as HTMLButtonElement | null
