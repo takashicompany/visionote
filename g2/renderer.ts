@@ -277,6 +277,49 @@ export async function switchToTextLayout(): Promise<void> {
   )
 }
 
+const MENU_W = 300
+const MENU_H = 180
+const MENU_X = Math.floor((DISPLAY_WIDTH - MENU_W) / 2)
+const MENU_Y = Math.floor((DISPLAY_HEIGHT - MENU_H) / 2)
+
+/** Switch to menu layout: centered bordered container + event capture layer */
+export async function switchToMenuLayout(): Promise<void> {
+  if (!bridge || !startupRendered) return
+  await bridge.rebuildPageContainer(
+    new RebuildPageContainer({
+      containerTotalNum: 2,
+      textObject: [
+        new TextContainerProperty({
+          containerID: 1,
+          containerName: 'evt',
+          content: ' ',
+          xPosition: 0,
+          yPosition: 0,
+          width: DISPLAY_WIDTH,
+          height: DISPLAY_HEIGHT,
+          isEventCapture: 1,
+          paddingLength: 0,
+        }),
+        new TextContainerProperty({
+          containerID: CURSOR.id,
+          containerName: CURSOR.name,
+          content: ' ',
+          xPosition: MENU_X,
+          yPosition: MENU_Y,
+          width: MENU_W,
+          height: MENU_H,
+          isEventCapture: 0,
+          paddingLength: 8,
+          borderWidth: 2,
+          borderColor: 0xFFFFFFFF,
+          borderRadius: 4,
+        }),
+      ],
+      imageObject: [],
+    }),
+  )
+}
+
 /** Display text content on the event capture container (native scroll) */
 export async function displayText(content: string): Promise<void> {
   if (!bridge || !startupRendered) return
@@ -362,6 +405,62 @@ export async function switchToMixedThumbnailLayout(
       containerTotalNum: textObjects.length + imageObjects.length,
       textObject: textObjects,
       imageObject: imageObjects,
+    }),
+  )
+}
+
+/** Update cursor container with menu.
+ *  Header: MENU
+ *  Row 0: Back
+ *  Row 1: Thumbnails/List toggle (shows active with 【】)
+ *  Row 2: Exit
+ */
+export async function displayMenu(cursorIdx: number, activeMode: 'thumbnails' | 'list'): Promise<void> {
+  if (!bridge || !startupRendered) return
+  const toggleRow = activeMode === 'thumbnails'
+    ? '【Thumbnails】　List'
+    : '　Thumbnails　【List】'
+  const rows = [
+    'MENU',
+    '',
+    (cursorIdx === 0 ? '▶ ' : '　') + 'Back',
+    (cursorIdx === 1 ? '▶ ' : '　') + toggleRow,
+    (cursorIdx === 2 ? '▶ ' : '　') + 'Exit',
+  ]
+  await bridge.textContainerUpgrade(
+    new TextContainerUpgrade({
+      containerID: CURSOR.id,
+      containerName: CURSOR.name,
+      contentOffset: 0,
+      contentLength: 2000,
+      content: rows.join('\n'),
+    }),
+  )
+}
+
+const LIST_VISIBLE = 10
+
+/** Update cursor container with filename list */
+export async function displayList(items: Array<{ name: string }>, cursorIdx: number): Promise<void> {
+  if (!bridge || !startupRendered) return
+  const total = items.length
+  if (total === 0) return
+
+  let start = cursorIdx - Math.floor(LIST_VISIBLE / 2)
+  start = Math.max(0, start)
+  start = Math.min(start, Math.max(0, total - LIST_VISIBLE))
+
+  const lines: string[] = []
+  for (let i = start; i < Math.min(start + LIST_VISIBLE, total); i++) {
+    lines.push((i === cursorIdx ? '▶ ' : '　') + items[i].name)
+  }
+  await bridge.textContainerUpgrade(
+    new TextContainerUpgrade({
+      containerID: CURSOR.id,
+      containerName: CURSOR.name,
+      contentOffset: 0,
+      contentLength: 2000,
+      content: lines.join('\n'),
     }),
   )
 }
